@@ -18,6 +18,12 @@ src/taskwright/static/htmx.min.js
 src/taskwright/templates/base.html
 src/taskwright/templates/index.html
 src/taskwright/templates/partials/board.html
+src/taskwright/templates/partials/calendar.html
 src/taskwright/templates/partials/main.html
+src/taskwright/templates/partials/milestone_banner.html
+src/taskwright/templates/partials/milestone_panel.html
+src/taskwright/templates/partials/milestones.html
+src/taskwright/templates/partials/projects.html
+src/taskwright/templates/partials/task_list.html
 src/taskwright/templates/partials/task_panel.html
 src/taskwright/templates/partials/timeline.html
