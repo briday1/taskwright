@@ -56,3 +56,18 @@ def test_tasks_to_jsonantt_omits_missing_dependency_targets() -> None:
 
     assert first["name"] == "Task one"
     assert "not_before" not in first
+
+
+def test_tasks_to_jsonantt_exports_all_dependency_arrows() -> None:
+    tasks = [
+        Task(id="A", title="Task A", project="Apollo"),
+        Task(id="B", title="Task B", project="Apollo"),
+        Task(id="C", title="Task C", project="Apollo", depends_on=["A", "B"]),
+    ]
+
+    data = tasks_to_jsonantt(tasks)
+    task_c = data["tasks"][0]["tasks"][2]
+
+    assert task_c["not_before"] == "A"
+    assert {"from": "A", "to": "C"} in data["arrows"]
+    assert {"from": "B", "to": "C"} in data["arrows"]

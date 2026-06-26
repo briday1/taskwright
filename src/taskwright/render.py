@@ -328,6 +328,8 @@ def tasks_to_jsonantt(
 
     exported_ids = {task.id for task in tasks}
     colors = project_colors or {}
+    arrows: list[dict[str, str]] = []
+    seen_arrows: set[tuple[str, str]] = set()
 
     project_layers: list[dict[str, Any]] = []
     for project_name in ordered_names:
@@ -354,10 +356,16 @@ def tasks_to_jsonantt(
                 entry["start"] = start
             if end:
                 entry["end"] = end
-            not_before = next((dep for dep in task.depends_on if dep in exported_ids and dep != task.id), None)
+            deps = [dep for dep in task.depends_on if dep in exported_ids and dep != task.id]
+            not_before = deps[0] if deps else None
             if not_before:
                 entry["not_before"] = not_before
+            for dep in deps:
+                edge = (dep, task.id)
+                if edge not in seen_arrows:
+                    seen_arrows.add(edge)
+                    arrows.append({"from": dep, "to": task.id})
             project_layer["tasks"].append(entry)
         project_layers.append(project_layer)
 
-    return {"title": title, "dateformat": "%Y-%m-%d", "tasks": project_layers}
+    return {"title": title, "dateformat": "%Y-%m-%d", "tasks": project_layers, "arrows": arrows}
