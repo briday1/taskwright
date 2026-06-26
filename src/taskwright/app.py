@@ -133,6 +133,17 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
             "calendar": build_calendar(filtered, date_from, date_to),
             "git": git_status(workspace),
             "git_message": git_message,
+            "task_index": [
+                {
+                    "id": t.id,
+                    "title": t.title,
+                    "status": t.status,
+                    "project": t.project,
+                    "due_date": t.due_date or "",
+                }
+                for t in sort_tasks(all_tasks, "title")
+            ],
+            "task_titles": {t.id: t.title for t in all_tasks},
             "filters": {
                 "projects": projects,
                 "date_from": date_from,

@@ -61,6 +61,82 @@
           if (picker) setProject(picker, val, '');
         }
       });
+
+      function depRefresh(picker) {
+        var hidden = picker.querySelector('input[name="depends_on"]');
+        var ids = Array.prototype.map.call(picker.querySelectorAll('.dep-chip'), function (c) { return c.dataset.id; });
+        if (hidden) hidden.value = ids.join(', ');
+      }
+      function depFilter(picker) {
+        var input = picker.querySelector('.dep-search-input');
+        var menu = picker.querySelector('.dep-menu');
+        var empty = picker.querySelector('.dep-empty');
+        var q = (input.value || '').trim().toLowerCase();
+        var shown = 0;
+        picker.querySelectorAll('.dep-option').forEach(function (o) {
+          var already = !!picker.querySelector('.dep-chip[data-id="' + o.dataset.id + '"]');
+          var match = q === '' ? true : o.dataset.search.indexOf(q) !== -1;
+          var show = match && !already;
+          o.hidden = !show;
+          if (show) shown++;
+        });
+        if (empty) empty.hidden = shown !== 0;
+        menu.hidden = false;
+      }
+      function depAdd(picker, id, title) {
+        if (picker.querySelector('.dep-chip[data-id="' + id + '"]')) return;
+        var chips = picker.querySelector('.dep-chips');
+        var chip = document.createElement('span');
+        chip.className = 'dep-chip';
+        chip.dataset.id = id;
+        chip.appendChild(document.createTextNode(title));
+        var x = document.createElement('button');
+        x.type = 'button';
+        x.className = 'dep-chip-x';
+        x.setAttribute('data-dep-remove', '');
+        x.setAttribute('aria-label', 'Remove dependency');
+        x.textContent = '×';
+        chip.appendChild(x);
+        chips.appendChild(chip);
+        depRefresh(picker);
+        var input = picker.querySelector('.dep-search-input');
+        if (input) input.value = '';
+      }
+      document.addEventListener('input', function (e) {
+        if (e.target.classList && e.target.classList.contains('dep-search-input')) {
+          var picker = e.target.closest('[data-dep-picker]');
+          if (picker) depFilter(picker);
+        }
+      });
+      document.addEventListener('focusin', function (e) {
+        if (e.target.classList && e.target.classList.contains('dep-search-input')) {
+          var picker = e.target.closest('[data-dep-picker]');
+          if (picker) depFilter(picker);
+        }
+      });
+      document.addEventListener('click', function (e) {
+        var opt = e.target.closest('.dep-option');
+        if (opt) {
+          var picker = opt.closest('[data-dep-picker]');
+          var titleEl = opt.querySelector('.dep-option-title');
+          if (picker) depAdd(picker, opt.dataset.id, titleEl ? titleEl.textContent : opt.dataset.id);
+          return;
+        }
+        var rm = e.target.closest('[data-dep-remove]');
+        if (rm) {
+          var picker2 = rm.closest('[data-dep-picker]');
+          var chip = rm.closest('.dep-chip');
+          if (chip) chip.remove();
+          if (picker2) depRefresh(picker2);
+          return;
+        }
+        document.querySelectorAll('[data-dep-picker]').forEach(function (p) {
+          if (!p.contains(e.target)) {
+            var m = p.querySelector('.dep-menu');
+            if (m) m.hidden = true;
+          }
+        });
+      });
     })();
   </script>
 </body>

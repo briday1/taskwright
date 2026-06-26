@@ -7,9 +7,13 @@
           <span class="timeline-title">
             {{ item.task.title }}
             {% if item.task.project %}<small class="project" style="background: {{ project_colors.get(item.task.project, '#2e6fd8') }}22; color: {{ project_colors.get(item.task.project, '#2e6fd8') }}">{{ item.task.project }}</small>{% endif %}
+            {% if item.task.depends_on %}<small class="timeline-deps">↳ after {% for d in item.task.depends_on %}{{ task_titles.get(d, d) }}{% if not loop.last %}, {% endif %}{% endfor %}</small>{% endif %}
           </span>
           <span class="timeline-track">
             <span class="timeline-bar {{ item.task.status }}"{% if item.task.project %} style="left: {{ item.left }}%; width: {{ item.width }}%; background: {{ project_colors.get(item.task.project, '#2e6fd8') }}"{% else %} style="left: {{ item.left }}%; width: {{ item.width }}%"{% endif %}></span>
+            {% for mark in item.dep_marks %}
+              <span class="timeline-dep-mark" style="left: {{ mark.pos }}%" title="Depends on {{ task_titles.get(mark.id, mark.id) }} (ends here)"></span>
+            {% endfor %}
           </span>
         </button>
       {% endfor %}

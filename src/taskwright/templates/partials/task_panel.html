@@ -71,7 +71,34 @@
       <label>Percent<input type="number" min="0" max="100" name="percent_complete" value="{{ selected_task.percent_complete }}"></label>
     </div>
     <label>Tags, comma-separated<input name="tags" value="{{ selected_task.tags|join(', ') }}"></label>
-    <label>Depends on task IDs, comma-separated<input name="depends_on" value="{{ selected_task.depends_on|join(', ') }}"></label>
+    <div class="dep-picker" data-dep-picker>
+      <label class="field-label">Depends on</label>
+      <input type="hidden" name="depends_on" value="{{ selected_task.depends_on|join(', ') }}">
+      <div class="dep-chips">
+        {% for dep in selected_task.depends_on %}
+          <span class="dep-chip" data-id="{{ dep }}">{{ task_titles.get(dep, dep) }}<button type="button" class="dep-chip-x" data-dep-remove aria-label="Remove dependency">×</button></span>
+        {% endfor %}
+      </div>
+      <div class="dep-search">
+        <input type="text" class="dep-search-input" placeholder="Search tasks by name…" autocomplete="off">
+        <div class="dep-menu" hidden>
+          {% for t in task_index %}
+            {% if t.id != selected_task.id %}
+              <button type="button" class="dep-option" data-id="{{ t.id }}" data-search="{{ (t.title ~ ' ' ~ t.id ~ ' ' ~ t.project)|lower }}"{% if t.id in selected_task.depends_on %} hidden{% endif %}>
+                <span class="dep-option-title">{{ t.title }}</span>
+                <span class="dep-option-meta">
+                  <span class="dep-status {{ t.status }}">{{ t.status }}</span>
+                  {% if t.project %}<span class="dep-proj">{{ t.project }}</span>{% endif %}
+                  {% if t.due_date %}<span class="dep-due">due {{ t.due_date }}</span>{% endif %}
+                  <span class="dep-id">{{ t.id }}</span>
+                </span>
+              </button>
+            {% endif %}
+          {% endfor %}
+          <p class="dep-empty muted" hidden>No matching tasks.</p>
+        </div>
+      </div>
+    </div>
     <label>Checklist <span class="hint">Use [x] done and [ ] open.</span>
       <textarea name="checklist_text" rows="6">{% for item in selected_task.checklist %}{% if item.done %}[x]{% else %}[ ]{% endif %} {{ item.text }}
 {% endfor %}</textarea>

@@ -245,7 +245,7 @@ def git_status(workspace: Path) -> dict[str, Any]:
                 if len(parts) == 2:
                     info["behind"] = int(parts[0])
                     info["ahead"] = int(parts[1])
-        status = _git(workspace, "status", "--porcelain")
+        status = _git(workspace, "status", "--porcelain", "--", ".")
         if status.returncode == 0:
             info["dirty"] = len([line for line in status.stdout.splitlines() if line.strip()])
     except (OSError, subprocess.SubprocessError) as exc:
@@ -261,7 +261,7 @@ def git_sync(workspace: Path) -> dict[str, Any]:
         return result
     try:
         if status["dirty"]:
-            _git(workspace, "add", "-A")
+            _git(workspace, "add", "-A", "--", ".")
             commit = _git(
                 workspace, "commit", "-m", f"taskwright: sync workspace ({datetime.now():%Y-%m-%d %H:%M})"
             )

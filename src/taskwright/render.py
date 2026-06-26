@@ -102,8 +102,15 @@ def build_timeline(tasks: list[Task]) -> dict:
     items = []
     for task, start, end in dated:
         left = ((start - start_min).days / total_days) * 100
-        width = (((end - start).days + 1) / total_days) * 100
-        items.append({"task": task, "left": left, "width": max(width, 2), "start": start, "end": end})
+        width = max((((end - start).days + 1) / total_days) * 100, 2)
+        items.append({"task": task, "left": left, "width": width, "start": start, "end": end})
+    end_pos = {item["task"].id: item["left"] + item["width"] for item in items}
+    for item in items:
+        item["dep_marks"] = [
+            {"id": dep, "pos": min(end_pos[dep], 100)}
+            for dep in item["task"].depends_on
+            if dep in end_pos
+        ]
     return {"rows": items, "start": start_min, "end": end_max, "days": total_days}
 
 
