@@ -15,7 +15,16 @@
   "completed_date": null,
   "percent_complete": 35,
   "depends_on": [],
-  "checklist": [],
+  "checklist": [
+    {
+      "text": "Task 1",
+      "done": false
+    },
+    {
+      "text": "Task 2",
+      "done": false
+    }
+  ],
   "notes": [],
   "attachments": [
     {

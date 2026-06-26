@@ -7,12 +7,24 @@
     <table class="task-table">
       <thead>
         <tr>
-          <th>Title</th>
-          <th>Project</th>
-          <th>Status</th>
-          <th>Priority</th>
-          <th>Due</th>
-          <th>Progress</th>
+          <th>
+            <button class="table-sort{% if filters.sort == 'title' %} active{% endif %}" hx-get="/partials/main?view=list&sort=title{% if filters.query_no_sort %}&{{ filters.query_no_sort }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Title</button>
+          </th>
+          <th>
+            <button class="table-sort{% if filters.sort == 'project' %} active{% endif %}" hx-get="/partials/main?view=list&sort=project{% if filters.query_no_sort %}&{{ filters.query_no_sort }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Project</button>
+          </th>
+          <th>
+            <button class="table-sort{% if filters.sort == 'status' %} active{% endif %}" hx-get="/partials/main?view=list&sort=status{% if filters.query_no_sort %}&{{ filters.query_no_sort }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Status</button>
+          </th>
+          <th>
+            <button class="table-sort{% if filters.sort == 'priority' %} active{% endif %}" hx-get="/partials/main?view=list&sort=priority{% if filters.query_no_sort %}&{{ filters.query_no_sort }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Priority</button>
+          </th>
+          <th>
+            <button class="table-sort{% if filters.sort == 'due_date' %} active{% endif %}" hx-get="/partials/main?view=list&sort=due_date{% if filters.query_no_sort %}&{{ filters.query_no_sort }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Due</button>
+          </th>
+          <th>
+            <button class="table-sort{% if filters.sort == 'percent_complete' %} active{% endif %}" hx-get="/partials/main?view=list&sort=percent_complete{% if filters.query_no_sort %}&{{ filters.query_no_sort }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Progress</button>
+          </th>
         </tr>
       </thead>
       <tbody>

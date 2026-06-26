@@ -1,6 +1,6 @@
 # Taskwright
 
-A local-first, file-backed productivity web app for managing program tasks. Everything lives in
+A local-first, file-backed productivity web app for managing tasks. Everything lives in
 plain files on your disk — no database, no account, no cloud. Point Taskwright at a folder and it
 serves a browser UI for dashboards, a Gantt timeline, a Kanban board, a calendar, notes,
 attachments, and an editable task side panel.
@@ -22,8 +22,8 @@ The source of truth is a workspace folder:
 
 ```text
 workspace/
-  programs/
-    default.json        # one file per program spec (name, description, projects)
+  projects/
+    apollo.json         # one file per project
   tasks/
     A1B2-C3D4-E5F6-7890.json  # one file per task (native id format)
   milestones/
@@ -50,9 +50,12 @@ source.)
 ## Quick start
 
 ```bash
-taskwright init ./my-workboard
 taskwright serve --workspace ./my-workboard
 ```
+
+If the workspace folder does not exist yet, `taskwright serve` will create the empty Taskwright
+structure for you. You can also run it from the current directory and let Taskwright use `.` as
+the workspace.
 
 Then open:
 
@@ -60,9 +63,9 @@ Then open:
 http://127.0.0.1:8000
 ```
 
-`init` scaffolds the folder with a `programs/` directory (including `default.json`), a `tasks/`
-directory, and a sample task. Use
-`--no-sample` to start empty.
+`init` is available if you want to scaffold a folder explicitly. It creates the empty
+`projects/`, `tasks/`, `milestones/`, and `assets/` directories plus a README stub. It does not
+create starter projects or tasks; use the app to add your own once you begin.
 
 ## Serve an existing workspace
 
@@ -143,7 +146,7 @@ Milestones are stored one JSON file per milestone under `milestones/`.
 - Save edits back to the JSON file; raw JSON editor escape hatch
 - Notes list and attachment/image uploads
 - Searchable "depends on" picker that resolves names to task ids
-- Project management with custom colors
+- Project management with custom colors, each stored in its own JSON file
 - Filtering by project, milestone, date range, and free-text search; sortable views
 - CSV / JSON export
 - Built-in git status chip and one-click sync (commit + pull + push)

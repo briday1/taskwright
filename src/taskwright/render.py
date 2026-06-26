@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import calendar as calendar_lib
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta
 
@@ -7,7 +8,6 @@ from .models import Milestone, Task
 
 STATUSES = ["backlog", "working", "blocked", "done"]
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-MAX_CALENDAR_WEEKS = 26
 PRIORITY_ORDER = {"critical": 0, "high": 1, "normal": 2, "low": 3}
 STATUS_ORDER = {"working": 0, "blocked": 1, "backlog": 2, "done": 3}
 SORTS = {
@@ -204,7 +204,29 @@ def filter_tasks(
     return result
 
 
-def build_calendar(tasks: list[Task], date_from: str = "", date_to: str = "") -> dict:
+def hide_stale_closed_tasks(tasks: list[Task], stale_days: int = 45) -> tuple[list[Task], int]:
+    cutoff = date.today() - timedelta(days=max(1, int(stale_days)))
+    kept: list[Task] = []
+    hidden = 0
+    for task in tasks:
+        if task.status not in {"done", "blocked"}:
+            kept.append(task)
+            continue
+        anchor = parse_date(task.completed_date) or parse_date(task.due_date) or parse_date(task.start_date)
+        if anchor and anchor < cutoff:
+            hidden += 1
+            continue
+        kept.append(task)
+    return kept, hidden
+
+
+def build_calendar(
+    tasks: list[Task],
+    date_from: str = "",
+    date_to: str = "",
+    focus_month: int | None = None,
+    focus_year: int | None = None,
+) -> dict:
     events: list[tuple[date, Task]] = []
     for task in tasks:
         anchor = parse_date(task.due_date) or parse_date(task.start_date)
@@ -221,16 +243,29 @@ def build_calendar(tasks: list[Task], date_from: str = "", date_to: str = "") ->
     if end < start:
         start, end = end, start
 
-    grid_start = start - timedelta(days=start.weekday())
-    grid_end = end + timedelta(days=(6 - end.weekday()))
-    if (grid_end - grid_start).days > MAX_CALENDAR_WEEKS * 7:
-        grid_end = grid_start + timedelta(days=MAX_CALENDAR_WEEKS * 7 - 1)
-
     by_day: defaultdict[date, list[Task]] = defaultdict(list)
     for d, task in events:
         by_day[d].append(task)
 
     today = date.today()
+    if focus_year is None or focus_month is None:
+        if date_from or date_to:
+            if event_dates:
+                latest = max(event_dates)
+                focus_year = latest.year
+                focus_month = latest.month
+            else:
+                focus_year = today.year
+                focus_month = today.month
+        else:
+            focus_year = today.year
+            focus_month = today.month
+    month_cursor = date(focus_year, focus_month, 1)
+    days_in_month = calendar_lib.monthrange(month_cursor.year, month_cursor.month)[1]
+    month_end = date(month_cursor.year, month_cursor.month, days_in_month)
+    grid_start = month_cursor - timedelta(days=month_cursor.weekday())
+    grid_end = month_end + timedelta(days=(6 - month_end.weekday()))
+
     weeks = []
     cursor = grid_start
     while cursor <= grid_end:
@@ -240,6 +275,7 @@ def build_calendar(tasks: list[Task], date_from: str = "", date_to: str = "") ->
                 {
                     "date": cursor,
                     "in_range": start <= cursor <= end,
+                    "in_month": cursor.month == month_cursor.month and cursor.year == month_cursor.year,
                     "today": cursor == today,
                     "tasks": by_day.get(cursor, []),
                 }
@@ -247,10 +283,24 @@ def build_calendar(tasks: list[Task], date_from: str = "", date_to: str = "") ->
             cursor += timedelta(days=1)
         weeks.append(week)
 
+    prev_year = focus_year - 1 if focus_month == 1 else focus_year
+    prev_month = 12 if focus_month == 1 else focus_month - 1
+    next_year = focus_year + 1 if focus_month == 12 else focus_year
+    next_month = 1 if focus_month == 12 else focus_month + 1
+
     return {
         "weeks": weeks,
         "weekdays": WEEKDAYS,
         "start": start,
         "end": end,
+        "month": focus_month,
+        "year": focus_year,
+        "label": month_cursor.strftime("%B %Y"),
+        "month_options": [{"value": i, "label": calendar_lib.month_name[i]} for i in range(1, 13)],
+        "prev_month": prev_month,
+        "prev_year": prev_year,
+        "next_month": next_month,
+        "next_year": next_year,
         "has_events": bool(events),
+        "current_month_label": month_cursor.strftime("%B %Y"),
     }

@@ -10,12 +10,12 @@ from .task_store import copy_starter_files, ensure_workspace
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(prog="taskwright", description="Local file-backed program/task tracker")
+    parser = argparse.ArgumentParser(prog="taskwright", description="Local file-backed workspace/task tracker")
     sub = parser.add_subparsers(dest="command", required=True)
 
     init_p = sub.add_parser("init", help="Initialize a new workspace")
     init_p.add_argument("path", nargs="?", default=".", help="Workspace path")
-    init_p.add_argument("--no-sample", action="store_true", help="Do not create a sample task")
+    init_p.add_argument("--no-sample", action="store_true", help="Ignored; init no longer creates sample content")
 
     serve_p = sub.add_parser("serve", help="Serve the local web UI")
     serve_p.add_argument("--workspace", default=".", help="Workspace path")

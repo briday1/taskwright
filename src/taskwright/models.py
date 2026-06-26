@@ -89,25 +89,3 @@ class Milestone(BaseModel):
             return [value]
         return list(value)
 
-
-
-class Program(BaseModel):
-    name: str = "Taskwright"
-    description: str = "Local file-backed program/task dashboard."
-    status: str = "active"
-    projects: list[Project] = Field(default_factory=list)
-    start_date: str | None = None
-    target_date: str | None = None
-
-    @field_validator("projects", mode="before")
-    @classmethod
-    def _coerce_projects(cls, value: Any) -> Any:
-        if not value:
-            return []
-        coerced = []
-        for item in value:
-            if isinstance(item, str):
-                coerced.append({"name": item})
-            else:
-                coerced.append(item)
-        return coerced

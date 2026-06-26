@@ -6,11 +6,11 @@
 taskwright init ./my-workboard
 ```
 
-This scaffolds the folder with a `programs/` directory (including `default.json`), a `tasks/`
-directory, and a single sample task. Pass `--no-sample` to start completely empty:
+This scaffolds the folder with empty `programs/`, `projects/`, `tasks/`, `milestones/`, and
+`assets/` directories plus a README stub. It does not create starter projects or tasks:
 
 ```bash
-taskwright init ./my-workboard --no-sample
+taskwright init ./my-workboard
 ```
 
 ## 2. Serve it

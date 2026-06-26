@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ program.name }}</title>
+  <title>{{ app_name }} · {{ workspace_name }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -13,10 +13,10 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <span class="brand-mark">{{ program.name[:1]|upper }}</span>
+      <span class="brand-mark">{{ app_name[:1]|upper }}</span>
       <div>
-        <h1>{{ program.name }}</h1>
-        <p>{{ program.description }}</p>
+        <h1>{{ app_name }}</h1>
+        <p>{{ workspace_name }}</p>
       </div>
     </div>
   </header>
@@ -227,6 +227,81 @@
           o.textContent = name;
           sel.appendChild(o);
         }
+      });
+
+      document.addEventListener('change', function (e) {
+        if (!(e.target.classList && e.target.classList.contains('hide-old-toggle'))) return;
+        var form = e.target.closest('form');
+        if (!form) return;
+        var hidden = form.querySelector('[data-show-closed-hidden]');
+        if (hidden) hidden.value = e.target.checked ? '1' : '0';
+      });
+
+      var PANE_KEY = 'taskwright.sidePaneWidth';
+      function paneBounds() {
+        var max = Math.min(Math.floor(window.innerWidth * 0.62), 820);
+        var min = 300;
+        if (max < min) max = min;
+        return { min: min, max: max };
+      }
+      function setPaneWidth(layout, px) {
+        if (!layout) return;
+        var b = paneBounds();
+        var clamped = Math.max(b.min, Math.min(b.max, Math.round(px)));
+        layout.style.setProperty('--side-pane-width', clamped + 'px');
+      }
+      function initPaneResizer(root) {
+        var layout = (root || document).querySelector('[data-resizable-layout]');
+        var resizer = (root || document).querySelector('[data-pane-resizer]');
+        if (!layout || !resizer) return;
+        var saved = parseInt(localStorage.getItem(PANE_KEY) || '', 10);
+        if (!Number.isNaN(saved)) setPaneWidth(layout, saved);
+        var dragging = false;
+        function widthFromPointer(clientX) {
+          var rect = layout.getBoundingClientRect();
+          return rect.right - clientX;
+        }
+        function commit(px) {
+          setPaneWidth(layout, px);
+          var current = parseInt(getComputedStyle(layout).getPropertyValue('--side-pane-width'), 10);
+          if (!Number.isNaN(current)) localStorage.setItem(PANE_KEY, String(current));
+        }
+        resizer.addEventListener('mousedown', function (e) {
+          dragging = true;
+          layout.classList.add('resizing');
+          e.preventDefault();
+        });
+        document.addEventListener('mousemove', function (e) {
+          if (!dragging) return;
+          commit(widthFromPointer(e.clientX));
+        });
+        document.addEventListener('mouseup', function () {
+          if (!dragging) return;
+          dragging = false;
+          layout.classList.remove('resizing');
+        });
+        resizer.addEventListener('dblclick', function () {
+          localStorage.removeItem(PANE_KEY);
+          layout.style.removeProperty('--side-pane-width');
+        });
+        resizer.addEventListener('keydown', function (e) {
+          if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+          var step = e.shiftKey ? 40 : 16;
+          var current = parseInt(getComputedStyle(layout).getPropertyValue('--side-pane-width'), 10);
+          if (Number.isNaN(current)) current = 430;
+          if (e.key === 'ArrowLeft') current += step;
+          if (e.key === 'ArrowRight') current -= step;
+          commit(current);
+          e.preventDefault();
+        });
+        window.addEventListener('resize', function () {
+          var current = parseInt(getComputedStyle(layout).getPropertyValue('--side-pane-width'), 10);
+          if (!Number.isNaN(current)) setPaneWidth(layout, current);
+        });
+      }
+      initPaneResizer(document);
+      document.body.addEventListener('htmx:afterSwap', function () {
+        initPaneResizer(document);
       });
     })();
   </script>

@@ -9,7 +9,7 @@
       {% for m in milestones %}
         {% set r = milestone_rollups.get(m.id) %}
         <div class="milestone-card {{ m.status }}" style="--ms-color: {{ m.color or '#3567e0' }}">
-          <button class="milestone-open" hx-get="/partials/main?milestone={{ m.id }}&view=board" hx-target="#app-main" hx-swap="outerHTML" title="Filter tasks to this milestone">
+          <button class="milestone-open" hx-get="/partials/main?milestone={{ m.id }}&view=board{% if filters.show_closed %}&show_closed=1{% endif %}&stale_days={{ filters.stale_days }}" hx-target="#app-main" hx-swap="outerHTML" title="Filter tasks to this milestone">
             <div class="mc-head">
               <span class="mc-flag" aria-hidden="true">◆</span>
               <strong>{{ m.title }}</strong>
@@ -34,7 +34,7 @@
             </div>
           </button>
           <div class="mc-foot">
-            <button class="btn-link" hx-get="/milestones/{{ m.id }}/panel?view=milestones" hx-target="#task-panel" hx-swap="innerHTML">Details</button>
+            <button class="btn-link" hx-get="/milestones/{{ m.id }}/panel?view=milestones{% if filters.show_closed %}&show_closed=1{% endif %}&stale_days={{ filters.stale_days }}" hx-target="#task-panel" hx-swap="innerHTML">Details</button>
           </div>
         </div>
       {% endfor %}
@@ -44,6 +44,8 @@
   {% endif %}
 
   <form hx-post="/milestones/create" hx-target="#app-main" hx-swap="outerHTML" class="new-milestone-form">
+    <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
+    <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
     <h3>New milestone</h3>
     <div class="add-row">
       <input name="title" placeholder="e.g. Beta launch" required>

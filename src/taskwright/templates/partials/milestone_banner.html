@@ -14,8 +14,8 @@
       </div>
     </div>
     <div class="mb-actions">
-      <button class="btn-link" hx-get="/milestones/{{ selected_milestone.id }}/panel?view={{ filters.view }}" hx-target="#task-panel" hx-swap="innerHTML">Open details</button>
-      <button class="pill clear" hx-get="/partials/main?view={{ filters.view }}" hx-target="#app-main" hx-swap="outerHTML">Clear milestone</button>
+      <button class="btn-link" hx-get="/milestones/{{ selected_milestone.id }}/panel?view={{ filters.view }}{% if filters.show_closed %}&show_closed=1{% endif %}&stale_days={{ filters.stale_days }}" hx-target="#task-panel" hx-swap="innerHTML">Open details</button>
+      <button class="pill clear" hx-get="/partials/main?view={{ filters.view }}{% if filters.show_closed %}&show_closed=1{% endif %}&stale_days={{ filters.stale_days }}" hx-target="#app-main" hx-swap="outerHTML">Clear milestone</button>
     </div>
   </div>
   <div class="mb-rollup">

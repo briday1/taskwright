@@ -1,4 +1,4 @@
-<main id="app-main" class="layout">
+<main id="app-main" class="layout" data-resizable-layout>
   <section class="content">
     <section class="summary-grid">
       <div class="summary-card">
@@ -32,10 +32,35 @@
             {% if filters.date_to %}<input type="hidden" name="date_to" value="{{ filters.date_to }}">{% endif %}
             <input type="hidden" name="sort" value="{{ filters.sort }}">
             <input type="hidden" name="view" value="{{ filters.view }}">
+            {% if filters.calendar_month %}<input type="hidden" name="calendar_month" value="{{ filters.calendar_month }}">{% endif %}
+            {% if filters.calendar_year %}<input type="hidden" name="calendar_year" value="{{ filters.calendar_year }}">{% endif %}
+            {% if filters.show_closed %}<input type="hidden" name="show_closed" value="1">{% endif %}
+            <input type="hidden" name="stale_days" value="{{ filters.stale_days }}">
             <span class="add-label">Keyword</span>
             <div class="add-row">
               <input name="q" value="{{ filters.q }}" placeholder="Search title, tags, notes…">
               <button type="submit">Search</button>
+            </div>
+          </form>
+
+          <form class="add-filter" hx-get="/partials/main" hx-target="#app-main" hx-swap="outerHTML" hx-trigger="change">
+            {% for p in filters.projects %}<input type="hidden" name="project" value="{{ p }}">{% endfor %}
+            {% if filters.date_from %}<input type="hidden" name="date_from" value="{{ filters.date_from }}">{% endif %}
+            {% if filters.date_to %}<input type="hidden" name="date_to" value="{{ filters.date_to }}">{% endif %}
+            {% if filters.q %}<input type="hidden" name="q" value="{{ filters.q }}">{% endif %}
+            <input type="hidden" name="sort" value="{{ filters.sort }}">
+            <input type="hidden" name="view" value="{{ filters.view }}">
+            {% if filters.calendar_month %}<input type="hidden" name="calendar_month" value="{{ filters.calendar_month }}">{% endif %}
+            {% if filters.calendar_year %}<input type="hidden" name="calendar_year" value="{{ filters.calendar_year }}">{% endif %}
+            <input type="hidden" name="show_closed" value="{% if filters.show_closed %}1{% else %}0{% endif %}" data-show-closed-hidden>
+            <span class="add-label">Old tasks</span>
+            <div class="add-row add-row-tight">
+              <label class="toggle-label">
+                <input type="checkbox" class="hide-old-toggle" {% if filters.show_closed %}checked{% endif %}>
+                Show old stuff
+              </label>
+              <input type="number" name="stale_days" min="1" max="365" value="{{ filters.stale_days }}" class="stale-days-input">
+              <span class="muted">days</span>
             </div>
           </form>
 
@@ -46,6 +71,10 @@
               {% if filters.q %}<input type="hidden" name="q" value="{{ filters.q }}">{% endif %}
               <input type="hidden" name="sort" value="{{ filters.sort }}">
               <input type="hidden" name="view" value="{{ filters.view }}">
+              {% if filters.calendar_month %}<input type="hidden" name="calendar_month" value="{{ filters.calendar_month }}">{% endif %}
+              {% if filters.calendar_year %}<input type="hidden" name="calendar_year" value="{{ filters.calendar_year }}">{% endif %}
+              {% if filters.show_closed %}<input type="hidden" name="show_closed" value="1">{% endif %}
+              <input type="hidden" name="stale_days" value="{{ filters.stale_days }}">
               <span class="add-label">Projects</span>
               <div class="project-checks">
                 {% for p in projects %}
@@ -63,6 +92,10 @@
             {% if filters.q %}<input type="hidden" name="q" value="{{ filters.q }}">{% endif %}
             <input type="hidden" name="sort" value="{{ filters.sort }}">
             <input type="hidden" name="view" value="{{ filters.view }}">
+            {% if filters.calendar_month %}<input type="hidden" name="calendar_month" value="{{ filters.calendar_month }}">{% endif %}
+            {% if filters.calendar_year %}<input type="hidden" name="calendar_year" value="{{ filters.calendar_year }}">{% endif %}
+            {% if filters.show_closed %}<input type="hidden" name="show_closed" value="1">{% endif %}
+            <input type="hidden" name="stale_days" value="{{ filters.stale_days }}">
             <span class="add-label">Date range</span>
             <div class="add-row">
               <input type="date" name="date_from" value="{{ filters.date_from }}">
@@ -108,6 +141,10 @@
             <input type="hidden" name="f_view" value="{{ filters.view }}">
             <input type="hidden" name="f_sort" value="{{ filters.sort }}">
             <input type="hidden" name="f_milestone" value="{{ filters.milestone }}">
+            <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
+            <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
+            <input type="hidden" name="f_calendar_month" value="{{ filters.calendar_month }}">
+            <input type="hidden" name="f_calendar_year" value="{{ filters.calendar_year }}">
             <button type="submit" class="git-sync-btn" title="Commit local changes, pull, and push">Sync</button>
           </form>
         {% else %}
@@ -129,22 +166,39 @@
         <button class="{% if filters.view == 'board' %}active{% endif %}" hx-get="/partials/main?view=board{% if filters.query %}&{{ filters.query }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Task Board</button>
         <button class="{% if filters.view == 'gantt' %}active{% endif %}" hx-get="/partials/main?view=gantt{% if filters.query %}&{{ filters.query }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Gantt</button>
         <button class="{% if filters.view == 'calendar' %}active{% endif %}" hx-get="/partials/main?view=calendar{% if filters.query %}&{{ filters.query }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Calendar</button>
-        <button class="{% if filters.view == 'milestones' %}active{% endif %}" hx-get="/partials/main?view=milestones" hx-target="#app-main" hx-swap="outerHTML">Milestones</button>
-        <button class="{% if filters.view == 'projects' %}active{% endif %}" hx-get="/partials/main?view=projects" hx-target="#app-main" hx-swap="outerHTML">Projects</button>
+        <button class="{% if filters.view == 'milestones' %}active{% endif %}" hx-get="/partials/main?view=milestones{% if filters.query %}&{{ filters.query }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Milestones</button>
+        <button class="{% if filters.view == 'projects' %}active{% endif %}" hx-get="/partials/main?view=projects{% if filters.query %}&{{ filters.query }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Projects</button>
       </div>
-      {% if filters.view in ('list', 'gantt') %}
-        <form class="sort-form" hx-get="/partials/main" hx-target="#app-main" hx-swap="outerHTML" hx-trigger="change">
-          {% for p in filters.projects %}<input type="hidden" name="project" value="{{ p }}">{% endfor %}
-          {% if filters.date_from %}<input type="hidden" name="date_from" value="{{ filters.date_from }}">{% endif %}
-          {% if filters.date_to %}<input type="hidden" name="date_to" value="{{ filters.date_to }}">{% endif %}
-          {% if filters.q %}<input type="hidden" name="q" value="{{ filters.q }}">{% endif %}
-          <input type="hidden" name="view" value="{{ filters.view }}">
-          <label class="sort-label">Sort
-            <select name="sort">
-              {% for key, label in sorts.items() %}<option value="{{ key }}"{% if filters.sort == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
-            </select>
-          </label>
-        </form>
+      {% if filters.view == 'calendar' %}
+        <div class="calendar-nav">
+          <a class="calendar-nav-btn year" hx-get="/partials/main?{{ filters.calendar_year_prev_query }}" hx-target="#app-main" hx-swap="outerHTML">«</a>
+          <a class="calendar-nav-btn" hx-get="/partials/main?{{ filters.calendar_prev_query }}" hx-target="#app-main" hx-swap="outerHTML">‹</a>
+          <form class="calendar-jump" hx-get="/partials/main" hx-target="#app-main" hx-swap="outerHTML" hx-trigger="change">
+            {% for p in filters.projects %}<input type="hidden" name="project" value="{{ p }}">{% endfor %}
+            {% if filters.date_from %}<input type="hidden" name="date_from" value="{{ filters.date_from }}">{% endif %}
+            {% if filters.date_to %}<input type="hidden" name="date_to" value="{{ filters.date_to }}">{% endif %}
+            {% if filters.q %}<input type="hidden" name="q" value="{{ filters.q }}">{% endif %}
+            <input type="hidden" name="view" value="calendar">
+            <input type="hidden" name="sort" value="{{ filters.sort }}">
+            {% if filters.show_closed %}<input type="hidden" name="show_closed" value="1">{% endif %}
+            <input type="hidden" name="stale_days" value="{{ filters.stale_days }}">
+            <label class="calendar-jump-field">
+              <span>Month</span>
+              <select name="calendar_month">
+                {% for month in calendar.month_options %}
+                  <option value="{{ month.value }}"{% if month.value == filters.calendar_month %} selected{% endif %}>{{ month.label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label class="calendar-jump-field">
+              <span>Year</span>
+              <input type="number" name="calendar_year" value="{{ filters.calendar_year }}" min="1900" max="3000">
+            </label>
+            <button type="submit">Jump</button>
+          </form>
+          <a class="calendar-nav-btn" hx-get="/partials/main?{{ filters.calendar_next_query }}" hx-target="#app-main" hx-swap="outerHTML">›</a>
+          <a class="calendar-nav-btn year" hx-get="/partials/main?{{ filters.calendar_year_next_query }}" hx-target="#app-main" hx-swap="outerHTML">»</a>
+        </div>
       {% endif %}
       <form class="new-task-form" hx-post="/tasks/create" hx-target="#app-main" hx-swap="outerHTML">
         <input name="title" placeholder="New task title">
@@ -154,6 +208,10 @@
         <input type="hidden" name="f_q" value="{{ filters.q }}">
         <input type="hidden" name="f_view" value="{{ filters.view }}">
         <input type="hidden" name="f_milestone" value="{{ filters.milestone }}">
+        <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
+        <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
+        <input type="hidden" name="f_calendar_month" value="{{ filters.calendar_month }}">
+        <input type="hidden" name="f_calendar_year" value="{{ filters.calendar_year }}">
         <button type="submit">Create Task</button>
       </form>
     </div>
@@ -177,6 +235,14 @@
     {% endif %}
   </section>
 
+  <button
+    type="button"
+    class="pane-resizer"
+    data-pane-resizer
+    aria-label="Resize details pane"
+    title="Drag to resize details pane. Double-click to reset."
+    aria-orientation="vertical"
+  ></button>
   <aside id="task-panel" class="side-panel">
     {% if selected_task %}
       {% include "partials/task_panel.html" %}

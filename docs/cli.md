@@ -19,8 +19,8 @@ taskwright init [PATH] [--no-sample]
 | `PATH` | `.` | Folder to initialize as a workspace |
 | `--no-sample` | off | Skip creating the sample task |
 
-Creates a `programs/` directory (including `default.json`), a `tasks/` directory, and (unless
-`--no-sample`) a starter task.
+Creates `programs/`, `projects/`, `tasks/`, `milestones/`, and `assets/` directories plus a README
+stub. It does not create starter projects or tasks.
 
 ## `taskwright serve`
 

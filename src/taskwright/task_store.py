@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from .models import Attachment, Milestone, Note, Program, Project, Task
+from .models import Attachment, Milestone, Note, Project, Task
 
 
 class WorkspaceError(RuntimeError):
@@ -19,8 +19,7 @@ class WorkspaceError(RuntimeError):
 def workspace_paths(workspace: Path) -> dict[str, Path]:
     return {
         "root": workspace,
-        "programs": workspace / "programs",
-        "legacy_program": workspace / "program.json",
+        "projects": workspace / "projects",
         "tasks": workspace / "tasks",
         "milestones": workspace / "milestones",
         "assets": workspace / "assets",
@@ -30,38 +29,15 @@ def workspace_paths(workspace: Path) -> dict[str, Path]:
 def ensure_workspace(workspace: Path) -> None:
     paths = workspace_paths(workspace)
     paths["root"].mkdir(parents=True, exist_ok=True)
-    paths["programs"].mkdir(parents=True, exist_ok=True)
+    paths["projects"].mkdir(parents=True, exist_ok=True)
     paths["tasks"].mkdir(parents=True, exist_ok=True)
     paths["milestones"].mkdir(parents=True, exist_ok=True)
     paths["assets"].mkdir(parents=True, exist_ok=True)
-    _migrate_legacy_program(paths["legacy_program"], paths["programs"])
-    if not any(paths["programs"].glob("*.json")):
-        save_json(paths["programs"] / "default.json", Program().model_dump(mode="json"))
 
 
 def init_workspace(workspace: Path, with_sample: bool = True) -> None:
     ensure_workspace(workspace)
-    if with_sample and not any((workspace / "tasks").glob("*.json")):
-        sample = Task(
-            id="TASK-0001",
-            title="Create the first program milestone",
-            status="working",
-            priority="high",
-            owner="",
-            summary="Replace this sample with a real program task.",
-            description="Use the side panel to edit this task. The JSON file is stored in tasks/TASK-0001.json.",
-            tags=["sample", "planning"],
-            start_date=datetime.now().date().isoformat(),
-            due_date=None,
-            percent_complete=25,
-            checklist=[
-                {"text": "Initialize workspace", "done": True},
-                {"text": "Add real tasks", "done": False},
-                {"text": "Attach screenshots or notes", "done": False},
-            ],
-            notes=[Note(body="This is a sample note. Add real progress notes from the task detail panel.")],
-        )
-        save_task(workspace, sample)
+    return
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -78,49 +54,29 @@ def save_json(path: Path, data: dict[str, Any]) -> None:
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
-def load_program(workspace: Path) -> Program:
-    ensure_workspace(workspace)
-    return Program.model_validate(load_json(primary_program_path(workspace)))
-
-
-def _slugify_program_name(name: str) -> str:
+def _slugify_name(name: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", (name or "").strip().lower()).strip("-")
     return slug or "default"
 
 
-def _migrate_legacy_program(legacy_path: Path, programs_dir: Path) -> None:
-    if not legacy_path.exists():
-        return
-    if any(programs_dir.glob("*.json")):
-        return
-    legacy_data = load_json(legacy_path)
-    legacy_program = Program.model_validate(legacy_data)
-    target = programs_dir / f"{_slugify_program_name(legacy_program.name)}.json"
-    save_json(target, legacy_program.model_dump(mode="json"))
-    legacy_path.unlink(missing_ok=True)
+def _project_filename(name: str) -> str:
+    return f"{_slugify_name(name)}.json"
 
 
-def list_program_files(workspace: Path) -> list[Path]:
-    paths = sorted((workspace / "programs").glob("*.json"), key=lambda p: p.name.lower())
-    default = workspace / "programs" / "default.json"
-    if default in paths:
-        paths.remove(default)
-        return [default, *paths]
-    return paths
+def load_project(workspace: Path, name: str) -> Project:
+    return Project.model_validate(load_json(workspace / "projects" / _project_filename(name)))
 
 
-def primary_program_path(workspace: Path) -> Path:
+def load_all_projects(workspace: Path) -> list[Project]:
     ensure_workspace(workspace)
-    files = list_program_files(workspace)
-    if files:
-        return files[0]
-    fallback = workspace / "programs" / "default.json"
-    save_json(fallback, Program().model_dump(mode="json"))
-    return fallback
+    projects_dir = workspace / "projects"
+    projects = [Project.model_validate(load_json(path)) for path in sorted(projects_dir.glob("*.json"), key=lambda p: p.name.lower())]
+    return projects
 
 
-def save_program(workspace: Path, program: Program) -> None:
-    save_json(primary_program_path(workspace), program.model_dump(mode="json"))
+def save_project(workspace: Path, project: Project) -> None:
+    ensure_workspace(workspace)
+    save_json(workspace / "projects" / _project_filename(project.name), project.model_dump(mode="json"))
 
 
 DEFAULT_PROJECT_COLOR = "#2e6fd8"
@@ -136,44 +92,45 @@ PROJECT_PALETTE = [
 ]
 
 
-def available_projects(program: Program, tasks: list[Task]) -> list[Project]:
-    by_name: dict[str, Project] = {p.name: p for p in (program.projects or [])}
+def available_projects(projects: list[Project], tasks: list[Task]) -> list[Project]:
+    by_name: dict[str, Project] = {p.name: p for p in projects}
     for task in tasks:
         if task.project and task.project not in by_name:
             by_name[task.project] = Project(name=task.project, color=DEFAULT_PROJECT_COLOR)
     return sorted(by_name.values(), key=lambda p: p.name.lower())
 
 
-def project_colors(program: Program, tasks: list[Task]) -> dict[str, str]:
-    return {p.name: p.color for p in available_projects(program, tasks)}
+def project_colors(projects: list[Project], tasks: list[Task]) -> dict[str, str]:
+    return {p.name: p.color for p in available_projects(projects, tasks)}
 
 
 def register_project(workspace: Path, name: str) -> None:
     name = (name or "").strip()
     if not name:
         return
-    program = load_program(workspace)
-    if not any(p.name == name for p in program.projects):
-        used = {p.color for p in program.projects}
+    projects = load_all_projects(workspace)
+    if not any(p.name == name for p in projects):
+        used = {p.color for p in projects}
         color = next((c for c in PROJECT_PALETTE if c not in used), DEFAULT_PROJECT_COLOR)
-        program.projects.append(Project(name=name, color=color))
-        save_program(workspace, program)
+        save_project(workspace, Project(name=name, color=color))
 
 
 def upsert_project(workspace: Path, name: str, description: str = "", color: str = "") -> None:
     name = (name or "").strip()
     if not name:
         return
-    program = load_program(workspace)
     color = (color or "").strip() or DEFAULT_PROJECT_COLOR
-    for project in program.projects:
-        if project.name == name:
-            project.description = description
-            project.color = color
-            break
-    else:
-        program.projects.append(Project(name=name, description=description, color=color))
-    save_program(workspace, program)
+    project = next((item for item in load_all_projects(workspace) if item.name == name), None)
+    if project is None:
+        project = Project(name=name)
+    project.description = description
+    project.color = color
+    save_project(workspace, project)
+
+
+def workspace_label(workspace: Path) -> str:
+    label = (workspace.name or "Taskwright").replace("_", " ").replace("-", " ").strip()
+    return label.title() if label else "Taskwright"
 
 
 def load_task(workspace: Path, task_id: str) -> Task:
@@ -352,7 +309,7 @@ def move_task_in_milestone(workspace: Path, milestone_id: str, task_id: str, dir
 
 
 def copy_starter_files(target: Path) -> None:
-    init_workspace(target, with_sample=True)
+    init_workspace(target, with_sample=False)
     readme = target / "README.md"
     if not readme.exists():
         readme.write_text(

@@ -10,6 +10,8 @@
       <input type="hidden" name="f_q" value="{{ filters.q }}">
       <input type="hidden" name="f_view" value="{{ filters.view }}">
       <input type="hidden" name="f_milestone" value="{{ filters.milestone }}">
+      <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
+      <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
       {% if selected_task.status == 'done' %}
         <button type="submit" class="reopen-btn">Reopen task</button>
       {% else %}
@@ -25,6 +27,8 @@
     <input type="hidden" name="f_q" value="{{ filters.q }}">
     <input type="hidden" name="f_view" value="{{ filters.view }}">
     <input type="hidden" name="f_milestone" value="{{ filters.milestone }}">
+    <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
+    <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
     <label>Title<input name="title" value="{{ selected_task.title }}" required></label>
     <div class="form-grid">
       <label>Status
@@ -101,12 +105,60 @@
         </div>
       </div>
     </div>
-    <label>Checklist <span class="hint">Use [x] done and [ ] open.</span>
-      <textarea name="checklist_text" rows="6">{% for item in selected_task.checklist %}{% if item.done %}[x]{% else %}[ ]{% endif %} {{ item.text }}
-{% endfor %}</textarea>
-    </label>
     <button type="submit">Save Task</button>
   </form>
+
+  <section class="subsection checklist-section">
+    <div class="checklist-head">
+      <h3>Checklist</h3>
+      <span class="muted">Click to mark done</span>
+    </div>
+    <ul class="checklist-items">
+      {% for item in selected_task.checklist %}
+        <li class="checklist-item {% if item.done %}done{% endif %}">
+          <form hx-post="/tasks/{{ selected_task.id }}/checklist/{{ loop.index0 }}/toggle" hx-target="#app-main" hx-swap="outerHTML" class="checklist-toggle-form">
+            {% for p in filters.projects %}<input type="hidden" name="f_project" value="{{ p }}">{% endfor %}
+            <input type="hidden" name="f_from" value="{{ filters.date_from }}">
+            <input type="hidden" name="f_to" value="{{ filters.date_to }}">
+            <input type="hidden" name="f_q" value="{{ filters.q }}">
+            <input type="hidden" name="f_view" value="{{ filters.view }}">
+            <input type="hidden" name="f_milestone" value="{{ filters.milestone }}">
+            <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
+            <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
+            <button type="submit" class="check-toggle" aria-label="Toggle checklist item">
+              <span class="check-mark">{% if item.done %}✓{% endif %}</span>
+              <span class="check-text">{{ item.text }}</span>
+            </button>
+          </form>
+          <form hx-post="/tasks/{{ selected_task.id }}/checklist/{{ loop.index0 }}/delete" hx-target="#app-main" hx-swap="outerHTML" class="checklist-delete-form">
+            {% for p in filters.projects %}<input type="hidden" name="f_project" value="{{ p }}">{% endfor %}
+            <input type="hidden" name="f_from" value="{{ filters.date_from }}">
+            <input type="hidden" name="f_to" value="{{ filters.date_to }}">
+            <input type="hidden" name="f_q" value="{{ filters.q }}">
+            <input type="hidden" name="f_view" value="{{ filters.view }}">
+            <input type="hidden" name="f_milestone" value="{{ filters.milestone }}">
+            <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
+            <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
+            <button type="submit" class="check-delete" aria-label="Remove checklist item">×</button>
+          </form>
+        </li>
+      {% else %}
+        <li class="muted">No checklist items yet.</li>
+      {% endfor %}
+    </ul>
+    <form hx-post="/tasks/{{ selected_task.id }}/checklist/add" hx-target="#app-main" hx-swap="outerHTML" class="checklist-add-form">
+      {% for p in filters.projects %}<input type="hidden" name="f_project" value="{{ p }}">{% endfor %}
+      <input type="hidden" name="f_from" value="{{ filters.date_from }}">
+      <input type="hidden" name="f_to" value="{{ filters.date_to }}">
+      <input type="hidden" name="f_q" value="{{ filters.q }}">
+      <input type="hidden" name="f_view" value="{{ filters.view }}">
+      <input type="hidden" name="f_milestone" value="{{ filters.milestone }}">
+      <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
+      <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
+      <input name="item_text" placeholder="Add checklist item" required>
+      <button type="submit">Add item</button>
+    </form>
+  </section>
 
   <section class="subsection notes-section">
     <div class="notes-head">
@@ -161,13 +213,15 @@
 
   <details class="subsection">
     <summary>Raw JSON editor</summary>
-    <form hx-post="/tasks/{{ selected_task.id }}/raw" hx-target="#app-main" hx-swap="outerHTML">
+    <form class="raw-json-form" hx-post="/tasks/{{ selected_task.id }}/raw" hx-target="#app-main" hx-swap="outerHTML">
       {% for p in filters.projects %}<input type="hidden" name="f_project" value="{{ p }}">{% endfor %}
       <input type="hidden" name="f_from" value="{{ filters.date_from }}">
       <input type="hidden" name="f_to" value="{{ filters.date_to }}">
       <input type="hidden" name="f_q" value="{{ filters.q }}">
       <input type="hidden" name="f_view" value="{{ filters.view }}">
       <input type="hidden" name="f_milestone" value="{{ filters.milestone }}">
+      <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
+      <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
       <textarea name="raw_json" rows="18" class="code">{{ selected_task.model_dump_json(indent=2) }}</textarea>
       <button type="submit">Save Raw JSON</button>
     </form>
@@ -180,6 +234,8 @@
     <input type="hidden" name="f_q" value="{{ filters.q }}">
     <input type="hidden" name="f_view" value="{{ filters.view }}">
     <input type="hidden" name="f_milestone" value="{{ filters.milestone }}">
+    <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
+    <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
     <button type="submit">Delete Task</button>
   </form>
 
