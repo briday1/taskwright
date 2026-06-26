@@ -3,6 +3,7 @@ from __future__ import annotations
 import calendar as calendar_lib
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta
+from typing import Any
 
 from .models import Milestone, Task
 
@@ -304,3 +305,59 @@ def build_calendar(
         "has_events": bool(events),
         "current_month_label": month_cursor.strftime("%B %Y"),
     }
+
+
+def tasks_to_jsonantt(
+    tasks: list[Task],
+    *,
+    title: str = "Taskwright Export",
+    project_colors: dict[str, str] | None = None,
+    project_order: list[str] | None = None,
+) -> dict[str, Any]:
+    by_project: dict[str, list[Task]] = defaultdict(list)
+    for task in tasks:
+        by_project[(task.project or "").strip() or "Unassigned"].append(task)
+
+    ordered_names: list[str] = []
+    for name in project_order or []:
+        if name in by_project and name not in ordered_names:
+            ordered_names.append(name)
+    for name in sorted(by_project.keys(), key=str.lower):
+        if name not in ordered_names:
+            ordered_names.append(name)
+
+    exported_ids = {task.id for task in tasks}
+    colors = project_colors or {}
+
+    project_layers: list[dict[str, Any]] = []
+    for project_name in ordered_names:
+        project_layer: dict[str, Any] = {"name": project_name, "tasks": []}
+        if colors.get(project_name):
+            project_layer["color"] = colors[project_name]
+        for task in by_project[project_name]:
+            entry: dict[str, Any] = {
+                "name": task.title,
+                "id": task.id,
+                "status": task.status,
+                "priority": task.priority,
+                "percent_complete": task.percent_complete,
+            }
+            if task.summary:
+                entry["summary"] = task.summary
+            if task.description:
+                entry["description"] = task.description
+            if task.tags:
+                entry["tags"] = task.tags
+            start = task.start_date or task.due_date or task.completed_date
+            end = task.due_date or task.completed_date or start
+            if start:
+                entry["start"] = start
+            if end:
+                entry["end"] = end
+            not_before = next((dep for dep in task.depends_on if dep in exported_ids and dep != task.id), None)
+            if not_before:
+                entry["not_before"] = not_before
+            project_layer["tasks"].append(entry)
+        project_layers.append(project_layer)
+
+    return {"title": title, "dateformat": "%Y-%m-%d", "tasks": project_layers}
