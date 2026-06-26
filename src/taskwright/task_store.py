@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import secrets
 import shutil
 import subprocess
@@ -18,7 +19,8 @@ class WorkspaceError(RuntimeError):
 def workspace_paths(workspace: Path) -> dict[str, Path]:
     return {
         "root": workspace,
-        "program": workspace / "program.json",
+        "programs": workspace / "programs",
+        "legacy_program": workspace / "program.json",
         "tasks": workspace / "tasks",
         "milestones": workspace / "milestones",
         "assets": workspace / "assets",
@@ -28,11 +30,13 @@ def workspace_paths(workspace: Path) -> dict[str, Path]:
 def ensure_workspace(workspace: Path) -> None:
     paths = workspace_paths(workspace)
     paths["root"].mkdir(parents=True, exist_ok=True)
+    paths["programs"].mkdir(parents=True, exist_ok=True)
     paths["tasks"].mkdir(parents=True, exist_ok=True)
     paths["milestones"].mkdir(parents=True, exist_ok=True)
     paths["assets"].mkdir(parents=True, exist_ok=True)
-    if not paths["program"].exists():
-        save_json(paths["program"], Program().model_dump())
+    _migrate_legacy_program(paths["legacy_program"], paths["programs"])
+    if not any(paths["programs"].glob("*.json")):
+        save_json(paths["programs"] / "default.json", Program().model_dump(mode="json"))
 
 
 def init_workspace(workspace: Path, with_sample: bool = True) -> None:
@@ -76,7 +80,47 @@ def save_json(path: Path, data: dict[str, Any]) -> None:
 
 def load_program(workspace: Path) -> Program:
     ensure_workspace(workspace)
-    return Program.model_validate(load_json(workspace / "program.json"))
+    return Program.model_validate(load_json(primary_program_path(workspace)))
+
+
+def _slugify_program_name(name: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", (name or "").strip().lower()).strip("-")
+    return slug or "default"
+
+
+def _migrate_legacy_program(legacy_path: Path, programs_dir: Path) -> None:
+    if not legacy_path.exists():
+        return
+    if any(programs_dir.glob("*.json")):
+        return
+    legacy_data = load_json(legacy_path)
+    legacy_program = Program.model_validate(legacy_data)
+    target = programs_dir / f"{_slugify_program_name(legacy_program.name)}.json"
+    save_json(target, legacy_program.model_dump(mode="json"))
+    legacy_path.unlink(missing_ok=True)
+
+
+def list_program_files(workspace: Path) -> list[Path]:
+    paths = sorted((workspace / "programs").glob("*.json"), key=lambda p: p.name.lower())
+    default = workspace / "programs" / "default.json"
+    if default in paths:
+        paths.remove(default)
+        return [default, *paths]
+    return paths
+
+
+def primary_program_path(workspace: Path) -> Path:
+    ensure_workspace(workspace)
+    files = list_program_files(workspace)
+    if files:
+        return files[0]
+    fallback = workspace / "programs" / "default.json"
+    save_json(fallback, Program().model_dump(mode="json"))
+    return fallback
+
+
+def save_program(workspace: Path, program: Program) -> None:
+    save_json(primary_program_path(workspace), program.model_dump(mode="json"))
 
 
 DEFAULT_PROJECT_COLOR = "#2e6fd8"
@@ -113,7 +157,7 @@ def register_project(workspace: Path, name: str) -> None:
         used = {p.color for p in program.projects}
         color = next((c for c in PROJECT_PALETTE if c not in used), DEFAULT_PROJECT_COLOR)
         program.projects.append(Project(name=name, color=color))
-        save_json(workspace / "program.json", program.model_dump(mode="json"))
+        save_program(workspace, program)
 
 
 def upsert_project(workspace: Path, name: str, description: str = "", color: str = "") -> None:
@@ -129,7 +173,7 @@ def upsert_project(workspace: Path, name: str, description: str = "", color: str
             break
     else:
         program.projects.append(Project(name=name, description=description, color=color))
-    save_json(workspace / "program.json", program.model_dump(mode="json"))
+    save_program(workspace, program)
 
 
 def load_task(workspace: Path, task_id: str) -> Task:

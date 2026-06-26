@@ -22,7 +22,8 @@ The source of truth is a workspace folder:
 
 ```text
 workspace/
-  program.json          # program spec + projects (name, description, color)
+  programs/
+    default.json        # one file per program spec (name, description, projects)
   tasks/
     A1B2-C3D4-E5F6-7890.json  # one file per task (native id format)
   milestones/
@@ -59,7 +60,8 @@ Then open:
 http://127.0.0.1:8000
 ```
 
-`init` scaffolds the folder with a `program.json`, a `tasks/` directory, and a sample task. Use
+`init` scaffolds the folder with a `programs/` directory (including `default.json`), a `tasks/`
+directory, and a sample task. Use
 `--no-sample` to start empty.
 
 ## Serve an existing workspace
