@@ -23,6 +23,7 @@ from .render import (
     hide_stale_closed_tasks,
     milestone_rollup,
     sort_tasks,
+    tasks_to_jsonantt,
 )
 from .task_store import (
     add_attachment,
@@ -1030,7 +1031,14 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         tasks = filter_tasks(load_all_tasks(workspace), project, date_from, date_to, q)
         if not parse_toggle(show_closed):
             tasks, _ = hide_stale_closed_tasks(tasks, parse_stale_days(stale_days))
-        data = [task.model_dump(mode="json") for task in tasks]
+        projects = load_all_projects(workspace)
+        ordered_project_names = [p.name for p in available_projects(projects, tasks)]
+        data = tasks_to_jsonantt(
+            tasks,
+            title=workspace_label(workspace),
+            project_colors=project_colors(projects, tasks),
+            project_order=ordered_project_names,
+        )
         return Response(
             json.dumps(data, indent=2, ensure_ascii=False),
             media_type="application/json",
