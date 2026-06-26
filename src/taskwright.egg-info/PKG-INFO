@@ -1,0 +1,118 @@
+Metadata-Version: 2.4
+Name: taskwright
+Version: 0.1.0
+Summary: A local, file-backed productivity app for program/task tracking.
+Author: Taskwright Contributors
+License: MIT
+Keywords: tasks,productivity,fastapi,local-first,dashboard
+Classifier: Development Status :: 3 - Alpha
+Classifier: Framework :: FastAPI
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.111
+Requires-Dist: uvicorn[standard]>=0.30
+Requires-Dist: jinja2>=3.1
+Requires-Dist: python-multipart>=0.0.9
+Requires-Dist: pydantic>=2.7
+Requires-Dist: markdown>=3.6
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
+Requires-Dist: ruff>=0.5; extra == "dev"
+
+# Taskwright
+
+A local-first, file-backed productivity web app for managing program tasks.
+
+The source of truth is a workspace folder containing individual JSON task files:
+
+```text
+workspace/
+  program.json
+  tasks/
+    TASK-0001.json
+    TASK-0002.json
+  assets/
+    TASK-0001/
+      screenshot.png
+```
+
+The app provides a browser UI for viewing dashboards, timelines, task boards, notes, attachments, and editing tasks through a side panel.
+
+## Install locally
+
+From this repository:
+
+```bash
+pip install -e .
+```
+
+## Initialize a new taskwright workspace
+
+```bash
+taskwright init ./my-workboard
+cd ./my-workboard
+taskwright serve
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8000
+```
+
+## Serve an existing workspace
+
+```bash
+taskwright serve --workspace ./path/to/workspace --host 127.0.0.1 --port 8000
+```
+
+## Task file example
+
+```json
+{
+  "id": "TASK-0001",
+  "title": "CAF refinement prototype",
+  "status": "working",
+  "priority": "high",
+  "owner": "Brian",
+  "summary": "Build a prototype CAF refinement workflow.",
+  "description": "Compare baseline CAF sharpness against protection-aware refinement.",
+  "tags": ["caf", "signal-processing", "prototype"],
+  "start_date": "2026-06-24",
+  "due_date": "2026-06-30",
+  "completed_date": null,
+  "percent_complete": 60,
+  "depends_on": [],
+  "checklist": [
+    {"text": "Generate baseline CAF", "done": true},
+    {"text": "Export comparison plots", "done": false}
+  ],
+  "notes": [
+    {
+      "created_at": "2026-06-26T10:30:00",
+      "body": "Initial version was worse. Protection-aware version improved sharpness."
+    }
+  ],
+  "attachments": []
+}
+```
+
+## Current MVP features
+
+- JSON-per-task source model
+- Dashboard summary
+- Kanban-style board
+- Simple timeline
+- Click a task to open an editable side panel
+- Save edits back to the JSON file
+- Add notes
+- Upload attachments/images
+- Create new tasks
+- Raw JSON editor escape hatch
+

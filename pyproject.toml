@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "taskwright"
+version = "0.1.0"
+description = "A local, file-backed productivity app for program/task tracking."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "Taskwright Contributors" }
+]
+keywords = ["tasks", "productivity", "fastapi", "local-first", "dashboard"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Framework :: FastAPI",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+  "fastapi>=0.111",
+  "uvicorn[standard]>=0.30",
+  "jinja2>=3.1",
+  "python-multipart>=0.0.9",
+  "pydantic>=2.7",
+  "markdown>=3.6",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "ruff>=0.5",
+]
+
+[project.scripts]
+taskwright = "taskwright.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+taskwright = [
+  "templates/*.html",
+  "templates/partials/*.html",
+  "static/*.css",
+  "static/*.js",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src"]

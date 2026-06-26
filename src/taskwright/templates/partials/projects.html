@@ -1,0 +1,41 @@
+<section class="panel">
+  <div class="panel-heading">
+    <h2>Projects</h2>
+    <span>{{ projects|length }} project{{ '' if projects|length == 1 else 's' }}</span>
+  </div>
+
+  {% if projects %}
+    <div class="project-cards">
+      {% for p in projects %}
+        <div class="project-card" style="border-left-color: {{ p.color }}">
+          <div class="project-card-head">
+            <span class="swatch" style="background: {{ p.color }}"></span>
+            <strong>{{ p.name }}</strong>
+          </div>
+          {% if p.description %}<p>{{ p.description }}</p>{% else %}<p class="muted">No description</p>{% endif %}
+          <details class="project-edit">
+            <summary>Edit</summary>
+            <form hx-post="/projects" hx-target="#app-main" hx-swap="outerHTML" class="project-form">
+              <input type="hidden" name="name" value="{{ p.name }}">
+              <label>Description<input name="description" value="{{ p.description }}"></label>
+              <label>Color<input type="color" name="color" value="{{ p.color }}"></label>
+              <button type="submit">Save</button>
+            </form>
+          </details>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">No projects yet. Add one below.</p>
+  {% endif %}
+
+  <form hx-post="/projects" hx-target="#app-main" hx-swap="outerHTML" class="project-form new-project">
+    <h3>Add project</h3>
+    <div class="project-form-row">
+      <label>Name<input name="name" placeholder="e.g. Apollo" required></label>
+      <label>Color<input type="color" name="color" value="#2e6fd8"></label>
+    </div>
+    <label>Description<input name="description" placeholder="Optional description"></label>
+    <button type="submit">Add Project</button>
+  </form>
+</section>

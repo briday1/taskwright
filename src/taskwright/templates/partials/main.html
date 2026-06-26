@@ -1,0 +1,178 @@
+<main id="app-main" class="layout">
+  <section class="content">
+    <section class="summary-grid">
+      <div class="summary-card">
+        <span class="label">Total tasks</span>
+        <strong>{{ model.total }}</strong>
+      </div>
+      <div class="summary-card">
+        <span class="label">Done</span>
+        <strong>{{ model.counts.get('done', 0) }}</strong>
+      </div>
+      <div class="summary-card">
+        <span class="label">Working</span>
+        <strong>{{ model.counts.get('working', 0) }}</strong>
+      </div>
+      <div class="summary-card">
+        <span class="label">Blocked</span>
+        <strong>{{ model.counts.get('blocked', 0) }}</strong>
+      </div>
+    </section>
+
+    <div class="filter-bar">
+      <details class="filter-menu">
+        <summary>
+          <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4 2v-8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          Filter
+        </summary>
+        <div class="filter-pop">
+          <form class="add-filter" hx-get="/partials/main" hx-target="#app-main" hx-swap="outerHTML">
+            {% for p in filters.projects %}<input type="hidden" name="project" value="{{ p }}">{% endfor %}
+            {% if filters.date_from %}<input type="hidden" name="date_from" value="{{ filters.date_from }}">{% endif %}
+            {% if filters.date_to %}<input type="hidden" name="date_to" value="{{ filters.date_to }}">{% endif %}
+            <input type="hidden" name="sort" value="{{ filters.sort }}">
+            <input type="hidden" name="view" value="{{ filters.view }}">
+            <span class="add-label">Keyword</span>
+            <div class="add-row">
+              <input name="q" value="{{ filters.q }}" placeholder="Search title, tags, notes…">
+              <button type="submit">Search</button>
+            </div>
+          </form>
+
+          {% if projects %}
+            <form class="add-filter" hx-get="/partials/main" hx-target="#app-main" hx-swap="outerHTML" hx-trigger="change">
+              {% if filters.date_from %}<input type="hidden" name="date_from" value="{{ filters.date_from }}">{% endif %}
+              {% if filters.date_to %}<input type="hidden" name="date_to" value="{{ filters.date_to }}">{% endif %}
+              {% if filters.q %}<input type="hidden" name="q" value="{{ filters.q }}">{% endif %}
+              <input type="hidden" name="sort" value="{{ filters.sort }}">
+              <input type="hidden" name="view" value="{{ filters.view }}">
+              <span class="add-label">Projects</span>
+              <div class="project-checks">
+                {% for p in projects %}
+                  <label class="project-check">
+                    <input type="checkbox" name="project" value="{{ p.name }}"{% if p.name in filters.projects %} checked{% endif %}>
+                    <span class="swatch" style="background: {{ p.color }}"></span>{{ p.name }}
+                  </label>
+                {% endfor %}
+              </div>
+            </form>
+          {% endif %}
+
+          <form class="add-filter" hx-get="/partials/main" hx-target="#app-main" hx-swap="outerHTML">
+            {% for p in filters.projects %}<input type="hidden" name="project" value="{{ p }}">{% endfor %}
+            {% if filters.q %}<input type="hidden" name="q" value="{{ filters.q }}">{% endif %}
+            <input type="hidden" name="sort" value="{{ filters.sort }}">
+            <input type="hidden" name="view" value="{{ filters.view }}">
+            <span class="add-label">Date range</span>
+            <div class="add-row">
+              <input type="date" name="date_from" value="{{ filters.date_from }}">
+              <input type="date" name="date_to" value="{{ filters.date_to }}">
+              <button type="submit">Apply</button>
+            </div>
+          </form>
+        </div>
+      </details>
+
+      <div class="pills">
+        {% for pill in filters.pills %}
+          <button class="pill" {% if pill.color %}style="background: {{ pill.color }}22; border-color: {{ pill.color }}; color: {{ pill.color }}"{% endif %} hx-get="/partials/main?{{ pill.remove }}" hx-target="#app-main" hx-swap="outerHTML">{{ pill.label }}<span class="x">×</span></button>
+        {% else %}
+          <span class="muted no-filters">No filters applied</span>
+        {% endfor %}
+        {% if filters.pills %}
+          <button class="pill clear" hx-get="/partials/main?view={{ filters.view }}" hx-target="#app-main" hx-swap="outerHTML">Clear all</button>
+        {% endif %}
+      </div>
+
+      <span class="spacer"></span>
+      <a class="btn-link" href="/export/csv{% if filters.query %}?{{ filters.query }}{% endif %}">Export CSV</a>
+      <a class="btn-link" href="/export/json{% if filters.query %}?{{ filters.query }}{% endif %}">Export JSON</a>
+
+      <div class="git-chip{% if not git.tracked %} untracked{% endif %}" title="{% if git.tracked %}Branch {{ git.branch }}{% if git.upstream %} → {{ git.upstream }}{% endif %}{% else %}This workspace is not inside a git repository{% endif %}">
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M12 3v12m0 0a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm0-12a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm6 6a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm0 0c0 3-2 4-6 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        {% if git.tracked %}
+          <span class="git-branch">{{ git.branch or 'detached' }}</span>
+          {% if git.upstream %}
+            {% if git.ahead %}<span class="git-badge ahead" title="{{ git.ahead }} commit(s) ahead of {{ git.upstream }}">↑{{ git.ahead }}</span>{% endif %}
+            {% if git.behind %}<span class="git-badge behind" title="{{ git.behind }} commit(s) behind {{ git.upstream }}">↓{{ git.behind }}</span>{% endif %}
+            {% if not git.ahead and not git.behind and not git.dirty %}<span class="git-badge ok" title="Up to date with {{ git.upstream }}">✓ synced</span>{% endif %}
+          {% else %}
+            <span class="git-badge warn" title="No upstream remote configured">no remote</span>
+          {% endif %}
+          {% if git.dirty %}<span class="git-badge dirty" title="{{ git.dirty }} uncommitted change(s)">●{{ git.dirty }}</span>{% endif %}
+          <form hx-post="/git/sync" hx-target="#app-main" hx-swap="outerHTML" class="git-sync-form">
+            {% for p in filters.projects %}<input type="hidden" name="f_project" value="{{ p }}">{% endfor %}
+            <input type="hidden" name="f_from" value="{{ filters.date_from }}">
+            <input type="hidden" name="f_to" value="{{ filters.date_to }}">
+            <input type="hidden" name="f_q" value="{{ filters.q }}">
+            <input type="hidden" name="f_view" value="{{ filters.view }}">
+            <input type="hidden" name="f_sort" value="{{ filters.sort }}">
+            <button type="submit" class="git-sync-btn" title="Commit local changes, pull, and push">Sync</button>
+          </form>
+        {% else %}
+          <span class="git-branch">No git repo</span>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if git_message %}
+      <div class="git-toast">{{ git_message }}</div>
+    {% endif %}
+
+    <div class="view-bar">
+      <div class="view-switch">
+        <button class="{% if filters.view == 'list' %}active{% endif %}" hx-get="/partials/main?view=list{% if filters.query %}&{{ filters.query }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Task List</button>
+        <button class="{% if filters.view == 'board' %}active{% endif %}" hx-get="/partials/main?view=board{% if filters.query %}&{{ filters.query }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Task Board</button>
+        <button class="{% if filters.view == 'gantt' %}active{% endif %}" hx-get="/partials/main?view=gantt{% if filters.query %}&{{ filters.query }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Gantt</button>
+        <button class="{% if filters.view == 'calendar' %}active{% endif %}" hx-get="/partials/main?view=calendar{% if filters.query %}&{{ filters.query }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Calendar</button>
+        <button class="{% if filters.view == 'projects' %}active{% endif %}" hx-get="/partials/main?view=projects" hx-target="#app-main" hx-swap="outerHTML">Projects</button>
+      </div>
+      {% if filters.view in ('list', 'gantt') %}
+        <form class="sort-form" hx-get="/partials/main" hx-target="#app-main" hx-swap="outerHTML" hx-trigger="change">
+          {% for p in filters.projects %}<input type="hidden" name="project" value="{{ p }}">{% endfor %}
+          {% if filters.date_from %}<input type="hidden" name="date_from" value="{{ filters.date_from }}">{% endif %}
+          {% if filters.date_to %}<input type="hidden" name="date_to" value="{{ filters.date_to }}">{% endif %}
+          {% if filters.q %}<input type="hidden" name="q" value="{{ filters.q }}">{% endif %}
+          <input type="hidden" name="view" value="{{ filters.view }}">
+          <label class="sort-label">Sort
+            <select name="sort">
+              {% for key, label in sorts.items() %}<option value="{{ key }}"{% if filters.sort == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+          </label>
+        </form>
+      {% endif %}
+      <form class="new-task-form" hx-post="/tasks/create" hx-target="#app-main" hx-swap="outerHTML">
+        <input name="title" placeholder="New task title">
+        {% for p in filters.projects %}<input type="hidden" name="f_project" value="{{ p }}">{% endfor %}
+        <input type="hidden" name="f_from" value="{{ filters.date_from }}">
+        <input type="hidden" name="f_to" value="{{ filters.date_to }}">
+        <input type="hidden" name="f_q" value="{{ filters.q }}">
+        <input type="hidden" name="f_view" value="{{ filters.view }}">
+        <button type="submit">Create Task</button>
+      </form>
+    </div>
+
+    {% if filters.view == 'list' %}
+      {% include "partials/task_list.html" %}
+    {% elif filters.view == 'gantt' %}
+      <section class="panel">{% include "partials/timeline.html" %}</section>
+    {% elif filters.view == 'calendar' %}
+      <section class="panel">{% include "partials/calendar.html" %}</section>
+    {% elif filters.view == 'projects' %}
+      {% include "partials/projects.html" %}
+    {% else %}
+      {% include "partials/board.html" %}
+    {% endif %}
+  </section>
+
+  <aside id="task-panel" class="side-panel">
+    {% if selected_task %}
+      {% include "partials/task_panel.html" %}
+    {% else %}
+      <div class="empty-panel">
+        <h2>Select a task to see details</h2>
+        <p>Click any task row, card, timeline bar, or calendar entry to edit details, notes, checklist, and attachments.</p>
+      </div>
+    {% endif %}
+  </aside>
+</main>

@@ -1,0 +1,156 @@
+<div class="panel-scroll">
+  <div class="panel-heading sticky">
+    <div>
+      <h2>{{ selected_task.title }}</h2>
+    </div>
+    <form hx-post="/tasks/{{ selected_task.id }}/complete" hx-target="#app-main" hx-swap="outerHTML">
+      {% for p in filters.projects %}<input type="hidden" name="f_project" value="{{ p }}">{% endfor %}
+      <input type="hidden" name="f_from" value="{{ filters.date_from }}">
+      <input type="hidden" name="f_to" value="{{ filters.date_to }}">
+      <input type="hidden" name="f_q" value="{{ filters.q }}">
+      <input type="hidden" name="f_view" value="{{ filters.view }}">
+      {% if selected_task.status == 'done' %}
+        <button type="submit" class="reopen-btn">Reopen task</button>
+      {% else %}
+        <button type="submit" class="complete-btn">✓ Complete task</button>
+      {% endif %}
+    </form>
+  </div>
+
+  <form hx-post="/tasks/{{ selected_task.id }}/save" hx-target="#app-main" hx-swap="outerHTML" class="task-form">
+    {% for p in filters.projects %}<input type="hidden" name="f_project" value="{{ p }}">{% endfor %}
+    <input type="hidden" name="f_from" value="{{ filters.date_from }}">
+    <input type="hidden" name="f_to" value="{{ filters.date_to }}">
+    <input type="hidden" name="f_q" value="{{ filters.q }}">
+    <input type="hidden" name="f_view" value="{{ filters.view }}">
+    <label>Title<input name="title" value="{{ selected_task.title }}" required></label>
+    <div class="form-grid">
+      <label>Status
+        <select name="status">
+          {% for status in statuses %}<option value="{{ status }}" {% if selected_task.status == status %}selected{% endif %}>{{ status }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Priority
+        <select name="priority">
+          {% for priority in ['low', 'normal', 'high', 'critical'] %}<option value="{{ priority }}" {% if selected_task.priority == priority %}selected{% endif %}>{{ priority }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    <label class="field-label">Project</label>
+    <div class="project-picker" data-project-picker>
+      <input type="hidden" name="project" value="{{ selected_task.project }}">
+      <details class="project-dd">
+        <summary>
+          <span class="project-dd-current">
+            {% if selected_task.project %}
+              <span class="swatch" style="background: {{ project_colors.get(selected_task.project, '#3567e0') }}"></span>{{ selected_task.project }}
+            {% else %}
+              <span class="muted">Select a project…</span>
+            {% endif %}
+          </span>
+          <span class="chev" aria-hidden="true">▾</span>
+        </summary>
+        <div class="project-dd-menu">
+          {% for p in projects %}
+            <button type="button" class="project-dd-item {% if p.name == selected_task.project %}selected{% endif %}" data-value="{{ p.name }}" data-color="{{ p.color }}">
+              <span class="swatch" style="background: {{ p.color }}"></span>{{ p.name }}
+            </button>
+          {% endfor %}
+          <div class="project-dd-new">
+            <input type="text" class="project-dd-input" placeholder="New project name, press Enter…">
+          </div>
+        </div>
+      </details>
+    </div>
+    <label>Summary<textarea name="summary" rows="2">{{ selected_task.summary }}</textarea></label>
+    <label>Description<textarea name="description" rows="5">{{ selected_task.description }}</textarea></label>
+    <div class="form-grid">
+      <label>Start date<input type="date" name="start_date" value="{{ selected_task.start_date or '' }}"></label>
+      <label>Due date<input type="date" name="due_date" value="{{ selected_task.due_date or '' }}"></label>
+      <label>Completed date<input type="date" name="completed_date" value="{{ selected_task.completed_date or '' }}"></label>
+      <label>Percent<input type="number" min="0" max="100" name="percent_complete" value="{{ selected_task.percent_complete }}"></label>
+    </div>
+    <label>Tags, comma-separated<input name="tags" value="{{ selected_task.tags|join(', ') }}"></label>
+    <label>Depends on task IDs, comma-separated<input name="depends_on" value="{{ selected_task.depends_on|join(', ') }}"></label>
+    <label>Checklist <span class="hint">Use [x] done and [ ] open.</span>
+      <textarea name="checklist_text" rows="6">{% for item in selected_task.checklist %}{% if item.done %}[x]{% else %}[ ]{% endif %} {{ item.text }}
+{% endfor %}</textarea>
+    </label>
+    <button type="submit">Save Task</button>
+  </form>
+
+  <section class="subsection notes-section">
+    <div class="notes-head">
+      <h3>Notes {% if selected_task.notes %}<span class="notes-count-badge">{{ selected_task.notes|length }}</span>{% endif %}</h3>
+    </div>
+    <div class="notes-list">
+      {% for note in selected_task.notes|reverse %}
+        <article class="note">
+          <small>{{ note.created_at }}</small>
+          <div class="markdown">{{ note.body|markdown|safe }}</div>
+        </article>
+      {% else %}
+        <p class="muted">No notes yet. Add your first one below.</p>
+      {% endfor %}
+    </div>
+    <form hx-post="/tasks/{{ selected_task.id }}/note" hx-target="#task-panel" hx-swap="innerHTML" class="inline-form note-add">
+      <label class="field-label">Add a note</label>
+      <textarea name="body" rows="3" placeholder="Write a note using Markdown…"></textarea>
+      <button type="submit">Add Note</button>
+    </form>
+  </section>
+
+  <section class="subsection">
+    <h3>Attachments</h3>
+    <ul class="attachment-list">
+      {% for att in selected_task.attachments %}
+        <li class="attachment-item">
+          {% if att.kind == 'image' %}
+            <a href="/{{ att.path }}" target="_blank" class="attachment-thumb"><img src="/{{ att.path }}" alt="{{ att.filename }}"></a>
+          {% else %}
+            <span class="attachment-icon" aria-hidden="true">📄</span>
+          {% endif %}
+          <div class="attachment-info">
+            <a href="/{{ att.path }}" target="_blank" class="attachment-name">{{ att.filename }}</a>
+            {% if att.description %}<p class="attachment-desc">{{ att.description }}</p>{% endif %}
+            <div class="attachment-meta">
+              {% if att.uploaded_at %}<span title="Uploaded">{{ att.uploaded_at[:10] }}{% if att.uploaded_at[11:16] %} {{ att.uploaded_at[11:16] }}{% endif %}</span>{% endif %}
+              <a href="/{{ att.path }}" download class="attachment-dl">Download</a>
+            </div>
+          </div>
+        </li>
+      {% else %}
+        <li class="muted">No attachments yet.</li>
+      {% endfor %}
+    </ul>
+    <form hx-post="/tasks/{{ selected_task.id }}/attachment" hx-target="#task-panel" hx-swap="innerHTML" enctype="multipart/form-data" class="attachment-form">
+      <input type="file" name="attachment" required>
+      <input type="text" name="description" placeholder="Description (optional)">
+      <button type="submit">Upload</button>
+    </form>
+  </section>
+
+  <details class="subsection">
+    <summary>Raw JSON editor</summary>
+    <form hx-post="/tasks/{{ selected_task.id }}/raw" hx-target="#app-main" hx-swap="outerHTML">
+      {% for p in filters.projects %}<input type="hidden" name="f_project" value="{{ p }}">{% endfor %}
+      <input type="hidden" name="f_from" value="{{ filters.date_from }}">
+      <input type="hidden" name="f_to" value="{{ filters.date_to }}">
+      <input type="hidden" name="f_q" value="{{ filters.q }}">
+      <input type="hidden" name="f_view" value="{{ filters.view }}">
+      <textarea name="raw_json" rows="18" class="code">{{ selected_task.model_dump_json(indent=2) }}</textarea>
+      <button type="submit">Save Raw JSON</button>
+    </form>
+  </details>
+
+  <form action="/tasks/{{ selected_task.id }}/delete" method="post" onsubmit="return confirm('Delete {{ selected_task.id }}?')" class="danger-zone">
+    {% for p in filters.projects %}<input type="hidden" name="f_project" value="{{ p }}">{% endfor %}
+    <input type="hidden" name="f_from" value="{{ filters.date_from }}">
+    <input type="hidden" name="f_to" value="{{ filters.date_to }}">
+    <input type="hidden" name="f_q" value="{{ filters.q }}">
+    <input type="hidden" name="f_view" value="{{ filters.view }}">
+    <button type="submit">Delete Task</button>
+  </form>
+
+  <p class="task-id-footer">Task ID: <span class="mono">{{ selected_task.id }}</span></p>
+</div>

@@ -1,0 +1,20 @@
+<div class="schedule-body">
+  {% if model.timeline.start %}<p class="schedule-range">{{ model.timeline.start }} → {{ model.timeline.end }}</p>{% endif %}
+  {% if model.timeline.rows %}
+    <div class="timeline">
+      {% for item in model.timeline.rows %}
+        <button class="timeline-row" hx-get="/tasks/{{ item.task.id }}/panel?view={{ filters.view }}{% if filters.query %}&{{ filters.query }}{% endif %}" hx-target="#task-panel" hx-swap="innerHTML">
+          <span class="timeline-title">
+            {{ item.task.title }}
+            {% if item.task.project %}<small class="project" style="background: {{ project_colors.get(item.task.project, '#2e6fd8') }}22; color: {{ project_colors.get(item.task.project, '#2e6fd8') }}">{{ item.task.project }}</small>{% endif %}
+          </span>
+          <span class="timeline-track">
+            <span class="timeline-bar {{ item.task.status }}"{% if item.task.project %} style="left: {{ item.left }}%; width: {{ item.width }}%; background: {{ project_colors.get(item.task.project, '#2e6fd8') }}"{% else %} style="left: {{ item.left }}%; width: {{ item.width }}%"{% endif %}></span>
+          </span>
+        </button>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">Add start or due dates to tasks to populate the timeline.</p>
+  {% endif %}
+</div>

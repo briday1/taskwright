@@ -1,0 +1,50 @@
+{
+  "id": "TASK-0001",
+  "title": "Create the first program milestone",
+  "status": "working",
+  "priority": "high",
+  "project": "Apollo",
+  "summary": "Sample",
+  "description": "x",
+  "tags": [
+    "sample"
+  ],
+  "start_date": "2026-06-24",
+  "due_date": "2026-06-30",
+  "completed_date": null,
+  "percent_complete": 50,
+  "depends_on": [],
+  "checklist": [
+    {
+      "text": "Initialize workspace",
+      "done": true
+    }
+  ],
+  "notes": [
+    {
+      "created_at": "2026-06-26T14:25:44",
+      "body": "This is a sample note. Add real progress notes from the task detail panel."
+    },
+    {
+      "created_at": "2026-06-26T15:31:39",
+      "body": "Another Note"
+    }
+  ],
+  "attachments": [
+    {
+      "filename": "image.png",
+      "path": "assets/TASK-0001/image.png",
+      "kind": "image",
+      "description": "",
+      "uploaded_at": "2026-06-26T14:57:13"
+    },
+    {
+      "filename": "tango_animate.gif",
+      "path": "assets/TASK-0001/tango_animate.gif",
+      "kind": "image",
+      "description": "",
+      "uploaded_at": "2026-06-26T14:57:24"
+    }
+  ],
+  "extra": {}
+}

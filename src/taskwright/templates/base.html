@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ program.name }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/htmx.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">{{ program.name[:1]|upper }}</span>
+      <div>
+        <h1>{{ program.name }}</h1>
+        <p>{{ program.description }}</p>
+      </div>
+    </div>
+  </header>
+  {% block body %}{% endblock %}
+  <script>
+    (function () {
+      function setProject(picker, value, color) {
+        var hidden = picker.querySelector('input[name="project"]');
+        var current = picker.querySelector('.project-dd-current');
+        if (hidden) hidden.value = value;
+        if (current) {
+          if (color) {
+            current.innerHTML = '<span class="swatch" style="background:' + color + '"></span>';
+            current.appendChild(document.createTextNode(value));
+          } else {
+            current.textContent = value;
+          }
+        }
+        picker.querySelectorAll('.project-dd-item').forEach(function (b) {
+          b.classList.toggle('selected', b.dataset.value === value);
+        });
+        var dd = picker.querySelector('details');
+        if (dd) dd.open = false;
+      }
+      document.addEventListener('click', function (e) {
+        var item = e.target.closest('.project-dd-item');
+        if (item) {
+          var picker = item.closest('[data-project-picker]');
+          if (picker) setProject(picker, item.dataset.value, item.dataset.color);
+          return;
+        }
+        document.querySelectorAll('.project-dd[open]').forEach(function (dd) {
+          if (!dd.contains(e.target)) dd.open = false;
+        });
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.target.classList && e.target.classList.contains('project-dd-input') && e.key === 'Enter') {
+          e.preventDefault();
+          var val = e.target.value.trim();
+          if (!val) return;
+          var picker = e.target.closest('[data-project-picker]');
+          if (picker) setProject(picker, val, '');
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

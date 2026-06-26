@@ -1,0 +1,19 @@
+{
+  "name": "Taskwright",
+  "description": "Local file-backed program/task dashboard.",
+  "status": "active",
+  "projects": [
+    {
+      "name": "Apollo",
+      "description": "",
+      "color": "#d82cd3"
+    },
+    {
+      "name": "Gemini",
+      "description": "",
+      "color": "#2e6fd8"
+    }
+  ],
+  "start_date": null,
+  "target_date": null
+}
