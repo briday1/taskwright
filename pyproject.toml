@@ -37,6 +37,11 @@ dev = [
   "pytest>=8",
   "ruff>=0.5",
 ]
+docs = [
+  "sphinx>=7",
+  "myst-parser>=3",
+  "furo>=2024.1",
+]
 
 [project.scripts]
 taskwright = "taskwright.cli:main"

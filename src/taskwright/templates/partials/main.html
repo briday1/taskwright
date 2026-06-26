@@ -107,6 +107,7 @@
             <input type="hidden" name="f_q" value="{{ filters.q }}">
             <input type="hidden" name="f_view" value="{{ filters.view }}">
             <input type="hidden" name="f_sort" value="{{ filters.sort }}">
+            <input type="hidden" name="f_milestone" value="{{ filters.milestone }}">
             <button type="submit" class="git-sync-btn" title="Commit local changes, pull, and push">Sync</button>
           </form>
         {% else %}
@@ -128,6 +129,7 @@
         <button class="{% if filters.view == 'board' %}active{% endif %}" hx-get="/partials/main?view=board{% if filters.query %}&{{ filters.query }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Task Board</button>
         <button class="{% if filters.view == 'gantt' %}active{% endif %}" hx-get="/partials/main?view=gantt{% if filters.query %}&{{ filters.query }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Gantt</button>
         <button class="{% if filters.view == 'calendar' %}active{% endif %}" hx-get="/partials/main?view=calendar{% if filters.query %}&{{ filters.query }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Calendar</button>
+        <button class="{% if filters.view == 'milestones' %}active{% endif %}" hx-get="/partials/main?view=milestones" hx-target="#app-main" hx-swap="outerHTML">Milestones</button>
         <button class="{% if filters.view == 'projects' %}active{% endif %}" hx-get="/partials/main?view=projects" hx-target="#app-main" hx-swap="outerHTML">Projects</button>
       </div>
       {% if filters.view in ('list', 'gantt') %}
@@ -151,9 +153,14 @@
         <input type="hidden" name="f_to" value="{{ filters.date_to }}">
         <input type="hidden" name="f_q" value="{{ filters.q }}">
         <input type="hidden" name="f_view" value="{{ filters.view }}">
+        <input type="hidden" name="f_milestone" value="{{ filters.milestone }}">
         <button type="submit">Create Task</button>
       </form>
     </div>
+
+    {% if selected_milestone and filters.view != 'milestones' %}
+      {% include "partials/milestone_banner.html" %}
+    {% endif %}
 
     {% if filters.view == 'list' %}
       {% include "partials/task_list.html" %}
@@ -161,6 +168,8 @@
       <section class="panel">{% include "partials/timeline.html" %}</section>
     {% elif filters.view == 'calendar' %}
       <section class="panel">{% include "partials/calendar.html" %}</section>
+    {% elif filters.view == 'milestones' %}
+      {% include "partials/milestones.html" %}
     {% elif filters.view == 'projects' %}
       {% include "partials/projects.html" %}
     {% else %}
@@ -171,10 +180,12 @@
   <aside id="task-panel" class="side-panel">
     {% if selected_task %}
       {% include "partials/task_panel.html" %}
+    {% elif selected_milestone %}
+      {% include "partials/milestone_panel.html" %}
     {% else %}
       <div class="empty-panel">
-        <h2>Select a task to see details</h2>
-        <p>Click any task row, card, timeline bar, or calendar entry to edit details, notes, checklist, and attachments.</p>
+        <h2>Select a task</h2>
+        <p>Details will appear when a task is selected.</p>
       </div>
     {% endif %}
   </aside>

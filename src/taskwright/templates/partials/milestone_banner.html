@@ -1,0 +1,34 @@
+<section class="milestone-banner">
+  <div class="mb-head">
+    <div class="mb-title">
+      <span class="mb-flag" aria-hidden="true">◆</span>
+      <div>
+        <h2>{{ selected_milestone.title }}</h2>
+        <div class="mb-meta">
+          <span class="ms-status {{ selected_milestone.status }}">{{ selected_milestone.status }}</span>
+          {% for proj in selected_milestone.projects %}
+            <span class="project" style="background: {{ project_colors.get(proj, '#2e6fd8') }}22; color: {{ project_colors.get(proj, '#2e6fd8') }}">{{ proj }}</span>
+          {% endfor %}
+          {% if selected_milestone.target_date %}<span class="mb-target">🎯 {{ selected_milestone.target_date }}</span>{% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="mb-actions">
+      <button class="btn-link" hx-get="/milestones/{{ selected_milestone.id }}/panel?view={{ filters.view }}" hx-target="#task-panel" hx-swap="innerHTML">Open details</button>
+      <button class="pill clear" hx-get="/partials/main?view={{ filters.view }}" hx-target="#app-main" hx-swap="outerHTML">Clear milestone</button>
+    </div>
+  </div>
+  <div class="mb-rollup">
+    <div class="mb-progress" title="{{ rollup.progress }}% complete">
+      <div style="width: {{ rollup.progress }}%"></div>
+    </div>
+    <div class="mb-stats">
+      <span><strong>{{ rollup.total }}</strong> tasks</span>
+      <span class="done"><strong>{{ rollup.done }}</strong> done</span>
+      <span class="working"><strong>{{ rollup.working }}</strong> working</span>
+      <span class="blocked"><strong>{{ rollup.blocked }}</strong> blocked</span>
+      <span><strong>{{ rollup.progress }}%</strong> complete</span>
+      {% if rollup.next_due %}<span>next due {{ rollup.next_due }}</span>{% endif %}
+    </div>
+  </div>
+</section>

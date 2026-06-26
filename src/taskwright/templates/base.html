@@ -137,6 +137,42 @@
           }
         });
       });
+
+      function msAddFilter(box) {
+        var input = box.querySelector('.ms-add-input');
+        var menu = box.querySelector('.ms-add-menu');
+        var empty = box.querySelector('.dep-empty');
+        var q = (input.value || '').trim().toLowerCase();
+        var shown = 0;
+        box.querySelectorAll('.ms-add-option').forEach(function (o) {
+          var match = q === '' ? true : o.dataset.search.indexOf(q) !== -1;
+          o.hidden = !match;
+          if (match) shown++;
+        });
+        if (empty) empty.hidden = shown !== 0;
+        if (menu) menu.hidden = false;
+      }
+      document.addEventListener('input', function (e) {
+        if (e.target.classList && e.target.classList.contains('ms-add-input')) {
+          var box = e.target.closest('[data-ms-add]');
+          if (box) msAddFilter(box);
+        }
+      });
+      document.addEventListener('focusin', function (e) {
+        if (e.target.classList && e.target.classList.contains('ms-add-input')) {
+          var box = e.target.closest('[data-ms-add]');
+          if (box) msAddFilter(box);
+        }
+      });
+      document.addEventListener('click', function (e) {
+        if (e.target.closest('.ms-add-option')) return;
+        document.querySelectorAll('[data-ms-add]').forEach(function (box) {
+          if (!box.contains(e.target)) {
+            var m = box.querySelector('.ms-add-menu');
+            if (m) m.hidden = true;
+          }
+        });
+      });
     })();
   </script>
 </body>

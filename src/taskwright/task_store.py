@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from .models import Attachment, Note, Program, Project, Task
+from .models import Attachment, Milestone, Note, Program, Project, Task
 
 
 class WorkspaceError(RuntimeError):
@@ -20,6 +20,7 @@ def workspace_paths(workspace: Path) -> dict[str, Path]:
         "root": workspace,
         "program": workspace / "program.json",
         "tasks": workspace / "tasks",
+        "milestones": workspace / "milestones",
         "assets": workspace / "assets",
     }
 
@@ -28,6 +29,7 @@ def ensure_workspace(workspace: Path) -> None:
     paths = workspace_paths(workspace)
     paths["root"].mkdir(parents=True, exist_ok=True)
     paths["tasks"].mkdir(parents=True, exist_ok=True)
+    paths["milestones"].mkdir(parents=True, exist_ok=True)
     paths["assets"].mkdir(parents=True, exist_ok=True)
     if not paths["program"].exists():
         save_json(paths["program"], Program().model_dump())
@@ -194,6 +196,115 @@ def add_attachment(workspace: Path, task_id: str, filename: str, content: bytes,
     )
     save_task(workspace, task)
     return task
+
+
+# --- Milestones -------------------------------------------------------------
+
+
+def load_milestone(workspace: Path, milestone_id: str) -> Milestone:
+    return Milestone.model_validate(load_json(workspace / "milestones" / f"{milestone_id}.json"))
+
+
+def load_all_milestones(workspace: Path) -> list[Milestone]:
+    ensure_workspace(workspace)
+    milestones: list[Milestone] = []
+    for path in sorted((workspace / "milestones").glob("*.json")):
+        milestones.append(Milestone.model_validate(load_json(path)))
+    return milestones
+
+
+def save_milestone(workspace: Path, milestone: Milestone) -> None:
+    ensure_workspace(workspace)
+    save_json(workspace / "milestones" / f"{milestone.id}.json", milestone.model_dump(mode="json"))
+
+
+def next_milestone_id(workspace: Path) -> str:
+    milestones_dir = workspace / "milestones"
+    for _ in range(1000):
+        candidate = "M-" + "-".join(
+            secrets.token_hex(4)[i : i + 4] for i in range(0, 8, 4)
+        ).upper()
+        if not (milestones_dir / f"{candidate}.json").exists():
+            return candidate
+    raise WorkspaceError("Unable to generate a unique milestone id")
+
+
+def create_milestone(workspace: Path, title: str = "New milestone") -> Milestone:
+    milestone = Milestone(id=next_milestone_id(workspace), title=title or "New milestone")
+    save_milestone(workspace, milestone)
+    return milestone
+
+
+def delete_milestone(workspace: Path, milestone_id: str) -> None:
+    path = workspace / "milestones" / f"{milestone_id}.json"
+    if path.exists():
+        path.unlink()
+    assets = workspace / "assets" / milestone_id
+    if assets.exists():
+        shutil.rmtree(assets, ignore_errors=True)
+
+
+def add_milestone_note(workspace: Path, milestone_id: str, body: str) -> Milestone:
+    milestone = load_milestone(workspace, milestone_id)
+    if body.strip():
+        milestone.notes.append(Note(body=body.strip()))
+        save_milestone(workspace, milestone)
+    return milestone
+
+
+def add_milestone_attachment(
+    workspace: Path,
+    milestone_id: str,
+    filename: str,
+    content: bytes,
+    content_type: str | None = None,
+    description: str = "",
+) -> Milestone:
+    milestone = load_milestone(workspace, milestone_id)
+    safe_name = Path(filename).name
+    target_dir = workspace / "assets" / milestone_id
+    target_dir.mkdir(parents=True, exist_ok=True)
+    (target_dir / safe_name).write_bytes(content)
+    kind = "image" if (content_type or "").startswith("image/") else "file"
+    milestone.attachments.append(
+        Attachment(
+            filename=safe_name,
+            path=f"assets/{milestone_id}/{safe_name}",
+            kind=kind,
+            description=description.strip(),
+        )
+    )
+    save_milestone(workspace, milestone)
+    return milestone
+
+
+def add_task_to_milestone(workspace: Path, milestone_id: str, task_id: str) -> Milestone:
+    milestone = load_milestone(workspace, milestone_id)
+    if task_id and task_id not in milestone.task_ids:
+        if (workspace / "tasks" / f"{task_id}.json").exists():
+            milestone.task_ids.append(task_id)
+            save_milestone(workspace, milestone)
+    return milestone
+
+
+def remove_task_from_milestone(workspace: Path, milestone_id: str, task_id: str) -> Milestone:
+    milestone = load_milestone(workspace, milestone_id)
+    if task_id in milestone.task_ids:
+        milestone.task_ids.remove(task_id)
+        save_milestone(workspace, milestone)
+    return milestone
+
+
+def move_task_in_milestone(workspace: Path, milestone_id: str, task_id: str, direction: str) -> Milestone:
+    milestone = load_milestone(workspace, milestone_id)
+    ids = milestone.task_ids
+    if task_id in ids:
+        idx = ids.index(task_id)
+        swap = idx - 1 if direction == "up" else idx + 1
+        if 0 <= swap < len(ids):
+            ids[idx], ids[swap] = ids[swap], ids[idx]
+            save_milestone(workspace, milestone)
+    return milestone
 
 
 def copy_starter_files(target: Path) -> None:

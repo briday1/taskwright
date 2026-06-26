@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta
 
-from .models import Task
+from .models import Milestone, Task
 
 STATUSES = ["backlog", "working", "blocked", "done"]
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -112,6 +112,33 @@ def build_timeline(tasks: list[Task]) -> dict:
             if dep in end_pos
         ]
     return {"rows": items, "start": start_min, "end": end_max, "days": total_days}
+
+
+def milestone_rollup(milestone: Milestone, tasks_by_id: dict[str, Task]) -> dict:
+    ordered = [tasks_by_id[tid] for tid in milestone.task_ids if tid in tasks_by_id]
+    counts = Counter(t.status for t in ordered)
+    total = len(ordered)
+    done = counts.get("done", 0)
+    progress = round(sum(t.percent_complete for t in ordered) / total) if total else 0
+    upcoming = sorted(
+        [t for t in ordered if t.status != "done" and parse_date(t.due_date)],
+        key=lambda t: parse_date(t.due_date) or date.max,
+    )
+    next_due = upcoming[0].due_date if upcoming else None
+    missing = [tid for tid in milestone.task_ids if tid not in tasks_by_id]
+    return {
+        "milestone": milestone,
+        "tasks": ordered,
+        "missing": missing,
+        "counts": counts,
+        "total": total,
+        "done": done,
+        "working": counts.get("working", 0),
+        "blocked": counts.get("blocked", 0),
+        "backlog": counts.get("backlog", 0),
+        "progress": progress,
+        "next_due": next_due,
+    }
 
 
 def tags_summary(tasks: list[Task]) -> dict[str, int]:

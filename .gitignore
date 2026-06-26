@@ -22,6 +22,9 @@ ENV/
 htmlcov/
 .tox/
 
+# Docs build output
+docs/_build/
+
 # Editor / OS
 .vscode/
 .idea/

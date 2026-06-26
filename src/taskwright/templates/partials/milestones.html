@@ -1,0 +1,53 @@
+<section class="panel">
+  <div class="panel-heading">
+    <h2>Milestones</h2>
+    <span>{{ milestones|length }} milestone{{ '' if milestones|length == 1 else 's' }}</span>
+  </div>
+
+  {% if milestones %}
+    <div class="milestone-cards">
+      {% for m in milestones %}
+        {% set r = milestone_rollups.get(m.id) %}
+        <div class="milestone-card {{ m.status }}">
+          <button class="milestone-open" hx-get="/partials/main?milestone={{ m.id }}&view=board" hx-target="#app-main" hx-swap="outerHTML" title="Filter tasks to this milestone">
+            <div class="mc-head">
+              <span class="mc-flag" aria-hidden="true">◆</span>
+              <strong>{{ m.title }}</strong>
+              <span class="ms-status {{ m.status }}">{{ m.status }}</span>
+            </div>
+            {% if m.summary %}<p class="mc-summary">{{ m.summary }}</p>{% endif %}
+            <div class="mc-projects">
+              {% for proj in m.projects %}
+                <span class="project" style="background: {{ project_colors.get(proj, '#2e6fd8') }}22; color: {{ project_colors.get(proj, '#2e6fd8') }}">{{ proj }}</span>
+              {% else %}
+                <span class="muted">No projects assigned</span>
+              {% endfor %}
+            </div>
+            <div class="mc-progress" title="{{ r.progress }}% complete">
+              <div style="width: {{ r.progress }}%"></div>
+            </div>
+            <div class="mc-stats">
+              <span>{{ r.total }} task{{ '' if r.total == 1 else 's' }}</span>
+              <span>{{ r.done }} done</span>
+              <span>{{ r.progress }}%</span>
+              {% if m.target_date %}<span class="mc-target">🎯 {{ m.target_date }}</span>{% endif %}
+            </div>
+          </button>
+          <div class="mc-foot">
+            <button class="btn-link" hx-get="/milestones/{{ m.id }}/panel?view=milestones" hx-target="#task-panel" hx-swap="innerHTML">Details</button>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">No milestones yet. Create one below to group tasks across projects.</p>
+  {% endif %}
+
+  <form hx-post="/milestones/create" hx-target="#app-main" hx-swap="outerHTML" class="new-milestone-form">
+    <h3>New milestone</h3>
+    <div class="add-row">
+      <input name="title" placeholder="e.g. Beta launch" required>
+      <button type="submit">Create Milestone</button>
+    </div>
+  </form>
+</section>

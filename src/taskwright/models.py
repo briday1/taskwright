@@ -53,6 +53,43 @@ class Task(BaseModel):
     extra: dict[str, Any] = Field(default_factory=dict)
 
 
+MilestoneStatus = Literal["planned", "active", "done"]
+
+
+class Milestone(BaseModel):
+    id: str
+    title: str
+    status: MilestoneStatus = "active"
+    summary: str = ""
+    description: str = ""
+    projects: list[str] = Field(default_factory=list)
+    start_date: str | None = None
+    target_date: str | None = None
+    task_ids: list[str] = Field(default_factory=list)
+    notes: list[Note] = Field(default_factory=list)
+    attachments: list[Attachment] = Field(default_factory=list)
+    extra: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("projects", mode="before")
+    @classmethod
+    def _coerce_projects(cls, value: Any) -> Any:
+        if not value:
+            return []
+        if isinstance(value, str):
+            return [value]
+        return list(value)
+
+    @field_validator("task_ids", mode="before")
+    @classmethod
+    def _coerce_task_ids(cls, value: Any) -> Any:
+        if not value:
+            return []
+        if isinstance(value, str):
+            return [value]
+        return list(value)
+
+
+
 class Program(BaseModel):
     name: str = "Taskwright"
     description: str = "Local file-backed program/task dashboard."

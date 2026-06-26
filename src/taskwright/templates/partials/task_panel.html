@@ -9,6 +9,7 @@
       <input type="hidden" name="f_to" value="{{ filters.date_to }}">
       <input type="hidden" name="f_q" value="{{ filters.q }}">
       <input type="hidden" name="f_view" value="{{ filters.view }}">
+      <input type="hidden" name="f_milestone" value="{{ filters.milestone }}">
       {% if selected_task.status == 'done' %}
         <button type="submit" class="reopen-btn">Reopen task</button>
       {% else %}
@@ -23,6 +24,7 @@
     <input type="hidden" name="f_to" value="{{ filters.date_to }}">
     <input type="hidden" name="f_q" value="{{ filters.q }}">
     <input type="hidden" name="f_view" value="{{ filters.view }}">
+    <input type="hidden" name="f_milestone" value="{{ filters.milestone }}">
     <label>Title<input name="title" value="{{ selected_task.title }}" required></label>
     <div class="form-grid">
       <label>Status
@@ -165,6 +167,7 @@
       <input type="hidden" name="f_to" value="{{ filters.date_to }}">
       <input type="hidden" name="f_q" value="{{ filters.q }}">
       <input type="hidden" name="f_view" value="{{ filters.view }}">
+      <input type="hidden" name="f_milestone" value="{{ filters.milestone }}">
       <textarea name="raw_json" rows="18" class="code">{{ selected_task.model_dump_json(indent=2) }}</textarea>
       <button type="submit">Save Raw JSON</button>
     </form>
@@ -176,6 +179,7 @@
     <input type="hidden" name="f_to" value="{{ filters.date_to }}">
     <input type="hidden" name="f_q" value="{{ filters.q }}">
     <input type="hidden" name="f_view" value="{{ filters.view }}">
+    <input type="hidden" name="f_milestone" value="{{ filters.milestone }}">
     <button type="submit">Delete Task</button>
   </form>
 
