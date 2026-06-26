@@ -121,7 +121,7 @@
       <a class="btn-link" href="/export/csv{% if filters.query %}?{{ filters.query }}{% endif %}">Export CSV</a>
       <a class="btn-link" href="/export/json{% if filters.query %}?{{ filters.query }}{% endif %}">Export JSON</a>
 
-      <div class="git-chip{% if not git.tracked %} untracked{% endif %}" title="{% if git.tracked %}Branch {{ git.branch }}{% if git.upstream %} → {{ git.upstream }}{% endif %}{% else %}This workspace is not inside a git repository{% endif %}">
+      <div class="git-chip{% if not git.tracked %} untracked{% endif %}" title="{% if git.tracked %}Branch {{ git.branch }}{% if git.upstream %} → {{ git.upstream }}{% endif %}{% else %}{{ git.message or 'This workspace is not inside a git repository' }}{% endif %}">
         <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M12 3v12m0 0a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm0-12a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm6 6a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm0 0c0 3-2 4-6 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         {% if git.tracked %}
           <span class="git-branch">{{ git.branch or 'detached' }}</span>
