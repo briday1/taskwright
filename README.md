@@ -14,7 +14,7 @@ attachments, and an editable task side panel.
   to git. The whole workspace is a folder you own.
 - **Local-first.** Runs entirely on `127.0.0.1`. Your data never leaves your machine.
 - **Git-aware.** The UI shows branch/ahead/behind/dirty status and has a one-click commit + pull +
-  push sync button so a workspace can double as a git repo.
+  push sync button when the workspace folder itself is a git repo.
 
 ## Workspace layout
 
@@ -172,5 +172,4 @@ ruff check .
 ## License
 
 MIT
-
 

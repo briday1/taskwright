@@ -329,6 +329,10 @@ def _git(workspace: Path, *args: str, timeout: int = 20) -> subprocess.Completed
     )
 
 
+def _workspace_repo_message() -> str:
+    return "Git integration only works when the workspace folder is the repository root."
+
+
 def git_status(workspace: Path) -> dict[str, Any]:
     info: dict[str, Any] = {
         "tracked": False,
@@ -342,6 +346,12 @@ def git_status(workspace: Path) -> dict[str, Any]:
     try:
         inside = _git(workspace, "rev-parse", "--is-inside-work-tree")
         if inside.returncode != 0 or inside.stdout.strip() != "true":
+            return info
+        top_level = _git(workspace, "rev-parse", "--show-toplevel")
+        if top_level.returncode != 0:
+            return info
+        if Path(top_level.stdout.strip()).resolve() != workspace.resolve():
+            info["message"] = _workspace_repo_message()
             return info
         info["tracked"] = True
         info["branch"] = _git(workspace, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
@@ -366,7 +376,7 @@ def git_sync(workspace: Path) -> dict[str, Any]:
     result: dict[str, Any] = {"ok": False, "message": ""}
     status = git_status(workspace)
     if not status["tracked"]:
-        result["message"] = "This workspace is not inside a git repository."
+        result["message"] = status["message"] or "This workspace is not inside a git repository."
         return result
     try:
         if status["dirty"]:

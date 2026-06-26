@@ -28,14 +28,15 @@ The toolbar chip reflects the workspace repository:
 - **Synced** (`✓`) when clean and up to date.
 - **No remote** when no upstream is configured.
 
-All git operations are scoped to the workspace folder, so they only touch your task files even if
-the workspace happens to live inside a larger repository.
+Git integration only activates when the workspace folder itself is the repository root. If the
+workspace lives inside some other repository, the status chip stays disabled and Sync will refuse to
+run so Taskwright never pulls from or pushes to the parent project.
 
 ## The Sync button
 
 **Sync** performs, in order:
 
-1. `git add -A` (scoped to the workspace)
+1. `git add -A` (scoped to the workspace repo root)
 2. `git commit` (if there are staged changes)
 3. `git pull --no-edit`
 4. `git push`
@@ -44,6 +45,6 @@ A toast reports the result. Dismiss it with the **×**, or it auto-dismisses aft
 
 ## Tip: keep the workspace separate
 
-If you keep your workboard inside another git repository, prefer giving it its own repo (or its own
-folder you track separately) so commits don't accidentally sweep in unrelated source changes.
+Give each workboard its own repository root. If you want the workspace under another project folder,
+initialize git inside the workspace itself rather than relying on the parent repository.
 </content>
