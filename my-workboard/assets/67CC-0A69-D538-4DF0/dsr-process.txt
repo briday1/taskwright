@@ -1,0 +1,6 @@
+Data Subject Requests
+
+1. Verify identity
+2. Assemble export bundle (JSON + files)
+3. Cascade deletion across services
+4. Confirm within 30 days

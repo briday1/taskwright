@@ -1,0 +1,22 @@
+{
+  "id": "0FE4-F827-348F-2E08",
+  "title": "SEO content program",
+  "status": "backlog",
+  "priority": "low",
+  "project": "Helios",
+  "summary": "Topic clusters and technical SEO.",
+  "description": "Keyword research, a publishing calendar, and Core Web Vitals fixes.",
+  "tags": [
+    "marketing",
+    "seo"
+  ],
+  "start_date": "2026-07-15",
+  "due_date": "2026-09-15",
+  "completed_date": null,
+  "percent_complete": 0,
+  "depends_on": [],
+  "checklist": [],
+  "notes": [],
+  "attachments": [],
+  "extra": {}
+}

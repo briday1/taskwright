@@ -652,6 +652,7 @@ button:focus-visible { outline: none; box-shadow: var(--ring); }
   display: grid;
   gap: .15rem;
 }
+.dep-menu[hidden] { display: none; }
 .dep-option {
   display: grid;
   gap: .15rem;
@@ -663,6 +664,7 @@ button:focus-visible { outline: none; box-shadow: var(--ring); }
   padding: .45rem .55rem;
   box-shadow: none;
 }
+.dep-option[hidden] { display: none; }
 .dep-option:hover { filter: none; background: var(--bg-soft); }
 .dep-option-title { font-weight: 600; font-size: .86rem; }
 .dep-option-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; font-size: .72rem; color: var(--muted); }
@@ -811,13 +813,11 @@ input[type="file"]::file-selector-button:hover {
   flex-direction: column;
   background: var(--card);
   border: 1px solid var(--line);
-  border-left: 4px solid var(--accent);
+  border-left: 4px solid var(--ms-color, var(--accent));
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
 }
-.milestone-card.done { border-left-color: var(--done); }
-.milestone-card.planned { border-left-color: var(--backlog); }
 .milestone-open {
   flex: 1;
   display: grid;
@@ -833,7 +833,7 @@ input[type="file"]::file-selector-button:hover {
 .milestone-open:hover { filter: none; background: var(--bg-soft); }
 .mc-head { display: flex; align-items: center; gap: .45rem; }
 .mc-head strong { flex: 1; font-size: 1rem; }
-.mc-flag { color: var(--accent); font-size: .8rem; }
+.mc-flag { color: var(--ms-color, var(--accent)); font-size: .8rem; }
 .mc-summary { margin: 0; color: var(--muted); font-size: .85rem; }
 .mc-projects { display: flex; flex-wrap: wrap; gap: .3rem; }
 .mc-progress, .mb-progress {
@@ -851,8 +851,9 @@ input[type="file"]::file-selector-button:hover {
 
 /* Milestone rollup banner */
 .milestone-banner {
-  background: linear-gradient(180deg, var(--accent-soft), var(--card));
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--ms-color, var(--accent));
   border-radius: var(--radius);
   padding: .9rem 1rem;
   margin-bottom: 1rem;
@@ -862,7 +863,7 @@ input[type="file"]::file-selector-button:hover {
 }
 .mb-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .mb-title { display: flex; align-items: flex-start; gap: .55rem; }
-.mb-flag { color: var(--accent); font-size: 1rem; line-height: 1.4; }
+.mb-flag { color: var(--ms-color, var(--accent)); font-size: 1rem; line-height: 1.4; }
 .mb-title h2 { margin: 0; font-size: 1.1rem; }
 .mb-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-top: .25rem; font-size: .78rem; color: var(--muted); }
 .mb-actions { display: flex; align-items: center; gap: .5rem; }
@@ -873,8 +874,64 @@ input[type="file"]::file-selector-button:hover {
 .mb-stats .blocked strong { color: var(--blocked); }
 
 /* Milestone detail panel */
-.ms-project-checks { display: flex; flex-wrap: wrap; gap: .5rem; }
-.ms-task-list { list-style: none; margin: .5rem 0 0; padding: 0; display: grid; gap: .4rem; }
+.ms-projects { display: grid; gap: .5rem; }
+.ms-proj-chips { display: flex; flex-wrap: wrap; gap: .35rem; }
+.ms-proj-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .25rem .35rem .25rem .5rem;
+  font-size: .82rem;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+.ms-proj-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  padding: 0;
+  font-size: .85rem;
+  line-height: 1;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  box-shadow: none;
+}
+.ms-proj-x:hover { filter: none; background: rgba(0, 0, 0, .08); color: var(--text); }
+.ms-proj-select { width: 100%; max-width: 16rem; }
+.ms-color-input { width: 100%; height: 2.2rem; padding: 2px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--card); cursor: pointer; }
+.ms-task-box {
+  margin-top: .3rem;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.ms-task-list { list-style: none; margin: 0; padding: .4rem; display: grid; gap: .4rem; max-height: 16rem; overflow-y: auto; }
+.ms-empty { padding: .4rem .2rem; }
+.ms-new-task-bar {
+  flex: none;
+  border-top: 1px solid var(--line);
+  background: var(--bg-soft);
+  padding: .4rem;
+}
+.ms-new-task-btn {
+  width: 100%;
+  background: transparent;
+  color: var(--accent);
+  border: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--line));
+  border-radius: var(--radius-sm);
+  padding: .45rem;
+  font-weight: 600;
+  font-size: .85rem;
+  box-shadow: none;
+}
+.ms-new-task-btn:hover { filter: none; background: var(--accent-soft); border-style: solid; }
 .ms-task {
   display: flex;
   align-items: stretch;
@@ -884,21 +941,6 @@ input[type="file"]::file-selector-button:hover {
   background: var(--bg-soft);
   overflow: hidden;
 }
-.ms-task-reorder { display: flex; flex-direction: column; }
-.ms-move {
-  flex: 1;
-  padding: 0 .4rem;
-  font-size: .6rem;
-  line-height: 1;
-  background: transparent;
-  color: var(--muted);
-  border: none;
-  border-right: 1px solid var(--line);
-  border-radius: 0;
-  box-shadow: none;
-}
-.ms-move:hover { filter: none; background: var(--accent-soft); color: var(--accent); }
-.ms-move:disabled { opacity: .3; cursor: default; }
 .ms-task-open {
   flex: 1;
   display: grid;
@@ -927,7 +969,7 @@ input[type="file"]::file-selector-button:hover {
 }
 .ms-task-remove:hover { filter: none; background: color-mix(in srgb, var(--blocked) 15%, white); color: var(--blocked); }
 .ms-missing { font-size: .78rem; }
-.ms-add { margin-top: .8rem; }
+.ms-add { margin: .4rem 0 .2rem; }
 .ms-add-search { position: relative; }
 .ms-add-input { width: 100%; }
 .ms-add-menu {
@@ -946,6 +988,7 @@ input[type="file"]::file-selector-button:hover {
   display: grid;
   gap: .15rem;
 }
+.ms-add-menu[hidden] { display: none; }
 .ms-add-option {
   display: grid;
   gap: .15rem;
@@ -957,5 +1000,6 @@ input[type="file"]::file-selector-button:hover {
   padding: .45rem .55rem;
   box-shadow: none;
 }
+.ms-add-option[hidden] { display: none; }
 .ms-add-option:hover { filter: none; background: var(--bg-soft); }
 .ms-new-task { margin-top: .9rem; }

@@ -1,0 +1,5 @@
+Public API v2
+
+- Cursor-based pagination
+- API keys + per-key rate limits
+- OpenAPI 3.1 spec published at /openapi.yaml

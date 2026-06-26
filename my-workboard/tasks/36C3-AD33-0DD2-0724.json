@@ -1,0 +1,22 @@
+{
+  "id": "36C3-AD33-0DD2-0724",
+  "title": "Event tracking schema",
+  "status": "working",
+  "priority": "high",
+  "project": "Atlas",
+  "summary": "Typed analytics event taxonomy.",
+  "description": "A schema registry, naming conventions, and a validation gate in CI.",
+  "tags": [
+    "data",
+    "analytics"
+  ],
+  "start_date": "2026-06-15",
+  "due_date": "2026-07-18",
+  "completed_date": null,
+  "percent_complete": 50,
+  "depends_on": [],
+  "checklist": [],
+  "notes": [],
+  "attachments": [],
+  "extra": {}
+}

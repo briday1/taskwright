@@ -1,0 +1,7 @@
+Design Tokens
+
+accent  #3567e0
+done    #2f9e5f
+blocked #d05a48
+radius-sm 8px
+radius-md 12px

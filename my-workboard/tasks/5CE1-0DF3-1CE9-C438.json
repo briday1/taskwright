@@ -1,0 +1,24 @@
+{
+  "id": "5CE1-0DF3-1CE9-C438",
+  "title": "Lifecycle email automation",
+  "status": "working",
+  "priority": "normal",
+  "project": "Helios",
+  "summary": "Onboarding and re-engagement drips.",
+  "description": "Welcome, activation, and win-back sequences triggered by product events.",
+  "tags": [
+    "marketing",
+    "lifecycle"
+  ],
+  "start_date": "2026-06-24",
+  "due_date": "2026-08-02",
+  "completed_date": null,
+  "percent_complete": 25,
+  "depends_on": [
+    "36C3-AD33-0DD2-0724"
+  ],
+  "checklist": [],
+  "notes": [],
+  "attachments": [],
+  "extra": {}
+}

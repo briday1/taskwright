@@ -1,0 +1,29 @@
+{
+  "id": "C3A3-DFC5-3D8D-3E2F",
+  "title": "Offline sync engine",
+  "status": "blocked",
+  "priority": "critical",
+  "project": "Apollo",
+  "summary": "Conflict-free offline edits with background sync.",
+  "description": "Queue mutations locally, reconcile with server using last-write-wins plus a merge log.",
+  "tags": [
+    "mobile",
+    "sync"
+  ],
+  "start_date": "2026-06-22",
+  "due_date": "2026-08-05",
+  "completed_date": null,
+  "percent_complete": 20,
+  "depends_on": [
+    "4981-D3C1-BEB9-6D08"
+  ],
+  "checklist": [],
+  "notes": [
+    {
+      "created_at": "2026-06-24T16:10:00",
+      "body": "Blocked on the API v2 pagination contract."
+    }
+  ],
+  "attachments": [],
+  "extra": {}
+}

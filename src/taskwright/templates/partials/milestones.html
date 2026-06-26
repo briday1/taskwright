@@ -8,7 +8,7 @@
     <div class="milestone-cards">
       {% for m in milestones %}
         {% set r = milestone_rollups.get(m.id) %}
-        <div class="milestone-card {{ m.status }}">
+        <div class="milestone-card {{ m.status }}" style="--ms-color: {{ m.color or '#3567e0' }}">
           <button class="milestone-open" hx-get="/partials/main?milestone={{ m.id }}&view=board" hx-target="#app-main" hx-swap="outerHTML" title="Filter tasks to this milestone">
             <div class="mc-head">
               <span class="mc-flag" aria-hidden="true">◆</span>
@@ -24,7 +24,7 @@
               {% endfor %}
             </div>
             <div class="mc-progress" title="{{ r.progress }}% complete">
-              <div style="width: {{ r.progress }}%"></div>
+              <div style="width: {{ r.progress }}%; background: {{ m.color or '#3567e0' }}"></div>
             </div>
             <div class="mc-stats">
               <span>{{ r.total }} task{{ '' if r.total == 1 else 's' }}</span>

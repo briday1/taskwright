@@ -16,17 +16,29 @@
           {% for s in ['planned', 'active', 'done'] %}<option value="{{ s }}" {% if selected_milestone.status == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
         </select>
       </label>
+      <label>Color
+        <input type="color" name="color" value="{{ selected_milestone.color or '#3567e0' }}" class="ms-color-input">
+      </label>
     </div>
     <label class="field-label">Projects <span class="hint">A milestone can span multiple projects.</span></label>
-    <div class="ms-project-checks">
-      {% for p in projects %}
-        <label class="project-check">
-          <input type="checkbox" name="projects" value="{{ p.name }}"{% if p.name in selected_milestone.projects %} checked{% endif %}>
-          <span class="swatch" style="background: {{ p.color }}"></span>{{ p.name }}
-        </label>
+    <div class="ms-projects" data-ms-projects>
+      <div class="ms-proj-chips">
+        {% for name in selected_milestone.projects %}
+          <span class="ms-proj-chip" data-name="{{ name }}">
+            <span class="swatch" style="background: {{ project_colors.get(name, '#2e6fd8') }}"></span>{{ name }}
+            <input type="hidden" name="projects" value="{{ name }}">
+            <button type="button" class="ms-proj-x" data-ms-proj-remove aria-label="Remove project">×</button>
+          </span>
+        {% endfor %}
+      </div>
+      {% if projects %}
+        <select class="ms-proj-select" data-ms-proj-select>
+          <option value="">Add a project…</option>
+          {% for p in projects if p.name not in selected_milestone.projects %}<option value="{{ p.name }}" data-color="{{ p.color }}">{{ p.name }}</option>{% endfor %}
+        </select>
       {% else %}
         <span class="muted">No projects yet. Create one in the Projects view.</span>
-      {% endfor %}
+      {% endif %}
     </div>
     <label>Summary<textarea name="summary" rows="2">{{ selected_milestone.summary }}</textarea></label>
     <label>Description<textarea name="description" rows="5">{{ selected_milestone.description }}</textarea></label>
@@ -38,36 +50,11 @@
   </form>
 
   <section class="subsection">
-    <h3>Tasks in order {% if rollup %}<span class="notes-count-badge">{{ rollup.total }}</span>{% endif %}</h3>
-    <ol class="ms-task-list">
-      {% for t in rollup.tasks %}
-        <li class="ms-task {{ t.status }}">
-          <div class="ms-task-reorder">
-            <button type="button" class="ms-move" hx-post="/milestones/{{ selected_milestone.id }}/tasks/{{ t.id }}/move/up?f_view={{ filters.view }}" hx-target="#app-main" hx-swap="outerHTML" title="Move up"{% if loop.first %} disabled{% endif %}>▲</button>
-            <button type="button" class="ms-move" hx-post="/milestones/{{ selected_milestone.id }}/tasks/{{ t.id }}/move/down?f_view={{ filters.view }}" hx-target="#app-main" hx-swap="outerHTML" title="Move down"{% if loop.last %} disabled{% endif %}>▼</button>
-          </div>
-          <button type="button" class="ms-task-open" hx-get="/tasks/{{ t.id }}/panel?view={{ filters.view }}&milestone={{ selected_milestone.id }}" hx-target="#task-panel" hx-swap="innerHTML">
-            <span class="ms-task-title">{{ t.title }}</span>
-            <span class="ms-task-meta">
-              <span class="status-pill {{ t.status }}">{{ t.status }}</span>
-              {% if t.project %}<span class="project" style="background: {{ project_colors.get(t.project, '#2e6fd8') }}22; color: {{ project_colors.get(t.project, '#2e6fd8') }}">{{ t.project }}</span>{% endif %}
-              {% if t.due_date %}<span class="muted">due {{ t.due_date }}</span>{% endif %}
-            </span>
-          </button>
-          <button type="button" class="ms-task-remove" hx-post="/milestones/{{ selected_milestone.id }}/tasks/{{ t.id }}/remove?f_view={{ filters.view }}" hx-target="#app-main" hx-swap="outerHTML" title="Remove from milestone" aria-label="Remove from milestone">×</button>
-        </li>
-      {% else %}
-        <li class="muted">No tasks yet. Add existing tasks or create a new one below.</li>
-      {% endfor %}
-    </ol>
-    {% if rollup and rollup.missing %}
-      <p class="muted ms-missing">⚠ {{ rollup.missing|length }} referenced task(s) no longer exist.</p>
-    {% endif %}
+    <h3>Tasks {% if rollup %}<span class="notes-count-badge">{{ rollup.total }}</span>{% endif %}</h3>
 
     <div class="ms-add" data-ms-add data-mid="{{ selected_milestone.id }}" data-view="{{ filters.view }}">
-      <label class="field-label">Add an existing task</label>
       <div class="ms-add-search">
-        <input type="text" class="ms-add-input" placeholder="Search tasks by name…" autocomplete="off">
+        <input type="text" class="ms-add-input" placeholder="Add a task — search by name…" autocomplete="off">
         <div class="ms-add-menu" hidden>
           {% for t in task_index %}
             <button type="button" class="ms-add-option" data-id="{{ t.id }}" data-search="{{ (t.title ~ ' ' ~ t.id ~ ' ' ~ t.project)|lower }}" hx-post="/milestones/{{ selected_milestone.id }}/tasks/{{ t.id }}/add?f_view={{ filters.view }}" hx-target="#app-main" hx-swap="outerHTML"{% if t.id in selected_milestone.task_ids %} hidden{% endif %}>
@@ -85,14 +72,32 @@
       </div>
     </div>
 
-    <form hx-post="/milestones/{{ selected_milestone.id }}/tasks/new" hx-target="#app-main" hx-swap="outerHTML" class="inline-form ms-new-task">
-      <input type="hidden" name="f_view" value="{{ filters.view }}">
-      <label class="field-label">Create a new task in this milestone</label>
-      <div class="add-row">
-        <input name="title" placeholder="New task title" required>
-        <button type="submit">Add Task</button>
-      </div>
-    </form>
+    <div class="ms-task-box">
+      <ul class="ms-task-list">
+        {% for t in rollup.tasks %}
+          <li class="ms-task {{ t.status }}">
+            <button type="button" class="ms-task-open" hx-get="/tasks/{{ t.id }}/panel?view={{ filters.view }}&milestone={{ selected_milestone.id }}" hx-target="#task-panel" hx-swap="innerHTML">
+              <span class="ms-task-title">{{ t.title }}</span>
+              <span class="ms-task-meta">
+                <span class="status-pill {{ t.status }}">{{ t.status }}</span>
+                {% if t.project %}<span class="project" style="background: {{ project_colors.get(t.project, '#2e6fd8') }}22; color: {{ project_colors.get(t.project, '#2e6fd8') }}">{{ t.project }}</span>{% endif %}
+                {% if t.due_date %}<span class="muted">due {{ t.due_date }}</span>{% endif %}
+              </span>
+            </button>
+            <button type="button" class="ms-task-remove" hx-post="/milestones/{{ selected_milestone.id }}/tasks/{{ t.id }}/remove?f_view={{ filters.view }}" hx-target="#app-main" hx-swap="outerHTML" title="Remove from milestone" aria-label="Remove from milestone">×</button>
+          </li>
+        {% else %}
+          <li class="muted ms-empty">No tasks yet. Search above to add one, or use “+ New task” below.</li>
+        {% endfor %}
+      </ul>
+      <form hx-post="/milestones/{{ selected_milestone.id }}/tasks/new" hx-target="#app-main" hx-swap="outerHTML" class="ms-new-task-bar">
+        <input type="hidden" name="f_view" value="{{ filters.view }}">
+        <button type="submit" class="ms-new-task-btn" title="Quickly add a new task to this milestone">+ New task</button>
+      </form>
+    </div>
+    {% if rollup and rollup.missing %}
+      <p class="muted ms-missing">⚠ {{ rollup.missing|length }} referenced task(s) no longer exist.</p>
+    {% endif %}
   </section>
 
   <section class="subsection notes-section">

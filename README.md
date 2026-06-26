@@ -24,12 +24,11 @@ The source of truth is a workspace folder:
 workspace/
   program.json          # program spec + projects (name, description, color)
   tasks/
-    TASK-0001.json      # one file per task
-    A1B2-C3D4-E5F6-7890.json
+    A1B2-C3D4-E5F6-7890.json  # one file per task (native id format)
   milestones/
     M-1A2B-3C4D.json    # one file per milestone (groups tasks across projects)
   assets/
-    TASK-0001/          # attachments live alongside their task id
+    A1B2-C3D4-E5F6-7890/  # attachments live alongside their task id
       screenshot.png
 ```
 
@@ -80,7 +79,7 @@ taskwright serve --workspace ./path/to/workspace --host 127.0.0.1 --port 8000
 
 ```json
 {
-  "id": "TASK-0001",
+  "id": "A1B2-C3D4-E5F6-7890",
   "title": "CAF refinement prototype",
   "status": "working",
   "priority": "high",
@@ -92,7 +91,7 @@ taskwright serve --workspace ./path/to/workspace --host 127.0.0.1 --port 8000
   "due_date": "2026-06-30",
   "completed_date": null,
   "percent_complete": 60,
-  "depends_on": ["TASK-0002"],
+  "depends_on": ["0EBB-528F-371E-61AE"],
   "checklist": [
     {"text": "Generate baseline CAF", "done": true},
     {"text": "Export comparison plots", "done": false}
@@ -122,8 +121,10 @@ milestones), and has its own description, notes, and attachments — just like a
   target date).
 - Click a milestone to **filter the whole board to just its tasks** and show a rollup banner; the
   side panel opens the milestone for editing.
-- From inside a milestone you can **create a new task** (added to the milestone automatically) or
-  **add an existing task** with a search-as-you-type picker, reorder tasks, and remove them.
+- Each milestone has its **own colour** used on milestone cards and the rollup banner.
+- From inside a milestone you can **add a task** with one search-as-you-type picker and use the
+  sticky **+ New task** button at the bottom of the list for quick creation (auto-added to that
+  milestone), and remove tasks.
 
 Milestones are stored one JSON file per milestone under `milestones/`.
 
@@ -134,7 +135,7 @@ Milestones are stored one JSON file per milestone under `milestones/`.
 - Kanban-style board with per-project color strips
 - Gantt timeline with dependency markers
 - Calendar view
-- **Milestones** that group tasks across projects, with an ordered task list, a
+- **Milestones** that group tasks across projects, with per-milestone colour,
   click-to-filter rollup, and their own notes/attachments/description
 - Click any task (row, card, timeline bar, calendar entry) to open an editable side panel
 - Save edits back to the JSON file; raw JSON editor escape hatch

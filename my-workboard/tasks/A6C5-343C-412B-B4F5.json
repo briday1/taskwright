@@ -1,0 +1,35 @@
+{
+  "id": "A6C5-343C-412B-B4F5",
+  "title": "Kubernetes migration",
+  "status": "working",
+  "priority": "critical",
+  "project": "Mercury",
+  "summary": "Move services from VMs to managed K8s.",
+  "description": "Helm charts, HPA autoscaling, and per-namespace network policies.",
+  "tags": [
+    "infra",
+    "k8s"
+  ],
+  "start_date": "2026-06-05",
+  "due_date": "2026-08-15",
+  "completed_date": null,
+  "percent_complete": 50,
+  "depends_on": [],
+  "checklist": [
+    {
+      "text": "Cluster provisioned",
+      "done": true
+    },
+    {
+      "text": "Migrate stateless svc",
+      "done": true
+    },
+    {
+      "text": "Migrate stateful svc",
+      "done": false
+    }
+  ],
+  "notes": [],
+  "attachments": [],
+  "extra": {}
+}

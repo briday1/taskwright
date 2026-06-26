@@ -60,6 +60,7 @@ class Milestone(BaseModel):
     id: str
     title: str
     status: MilestoneStatus = "active"
+    color: str = "#3567e0"
     summary: str = ""
     description: str = ""
     projects: list[str] = Field(default_factory=list)

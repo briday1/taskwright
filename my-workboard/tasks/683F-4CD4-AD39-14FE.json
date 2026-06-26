@@ -1,0 +1,24 @@
+{
+  "id": "683F-4CD4-AD39-14FE",
+  "title": "Dark mode theming",
+  "status": "backlog",
+  "priority": "normal",
+  "project": "Orion",
+  "summary": "System-aware dark theme.",
+  "description": "Token-driven theming with prefers-color-scheme and a manual override.",
+  "tags": [
+    "design",
+    "frontend"
+  ],
+  "start_date": "2026-07-20",
+  "due_date": "2026-08-18",
+  "completed_date": null,
+  "percent_complete": 0,
+  "depends_on": [
+    "16E2-9378-1E82-19F2"
+  ],
+  "checklist": [],
+  "notes": [],
+  "attachments": [],
+  "extra": {}
+}

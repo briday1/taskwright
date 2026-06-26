@@ -72,10 +72,11 @@
         var menu = picker.querySelector('.dep-menu');
         var empty = picker.querySelector('.dep-empty');
         var q = (input.value || '').trim().toLowerCase();
+        if (q === '') { menu.hidden = true; if (empty) empty.hidden = true; return; }
         var shown = 0;
         picker.querySelectorAll('.dep-option').forEach(function (o) {
           var already = !!picker.querySelector('.dep-chip[data-id="' + o.dataset.id + '"]');
-          var match = q === '' ? true : o.dataset.search.indexOf(q) !== -1;
+          var match = o.dataset.search.indexOf(q) !== -1;
           var show = match && !already;
           o.hidden = !show;
           if (show) shown++;
@@ -101,6 +102,8 @@
         depRefresh(picker);
         var input = picker.querySelector('.dep-search-input');
         if (input) input.value = '';
+        var menu = picker.querySelector('.dep-menu');
+        if (menu) menu.hidden = true;
       }
       document.addEventListener('input', function (e) {
         if (e.target.classList && e.target.classList.contains('dep-search-input')) {
@@ -172,6 +175,58 @@
             if (m) m.hidden = true;
           }
         });
+      });
+
+      // Milestone project chips: add via select, remove via x
+      document.addEventListener('change', function (e) {
+        if (!(e.target.classList && e.target.classList.contains('ms-proj-select'))) return;
+        var sel = e.target;
+        var name = sel.value;
+        if (!name) return;
+        var box = sel.closest('[data-ms-projects]');
+        if (!box) return;
+        var chips = box.querySelector('.ms-proj-chips');
+        if (chips.querySelector('.ms-proj-chip[data-name="' + name + '"]')) { sel.value = ''; return; }
+        var color = sel.options[sel.selectedIndex].dataset.color || '#2e6fd8';
+        var chip = document.createElement('span');
+        chip.className = 'ms-proj-chip';
+        chip.dataset.name = name;
+        var sw = document.createElement('span');
+        sw.className = 'swatch';
+        sw.style.background = color;
+        chip.appendChild(sw);
+        chip.appendChild(document.createTextNode(name));
+        var hid = document.createElement('input');
+        hid.type = 'hidden';
+        hid.name = 'projects';
+        hid.value = name;
+        chip.appendChild(hid);
+        var x = document.createElement('button');
+        x.type = 'button';
+        x.className = 'ms-proj-x';
+        x.setAttribute('data-ms-proj-remove', '');
+        x.setAttribute('aria-label', 'Remove project');
+        x.textContent = '×';
+        chip.appendChild(x);
+        chips.appendChild(chip);
+        sel.remove(sel.selectedIndex);
+        sel.value = '';
+      });
+      document.addEventListener('click', function (e) {
+        var pr = e.target.closest('[data-ms-proj-remove]');
+        if (!pr) return;
+        var chip = pr.closest('.ms-proj-chip');
+        var box = pr.closest('[data-ms-projects]');
+        if (!chip || !box) return;
+        var name = chip.dataset.name;
+        var sel = box.querySelector('.ms-proj-select');
+        chip.remove();
+        if (sel && !Array.prototype.some.call(sel.options, function (o) { return o.value === name; })) {
+          var o = document.createElement('option');
+          o.value = name;
+          o.textContent = name;
+          sel.appendChild(o);
+        }
       });
     })();
   </script>

@@ -1,0 +1,25 @@
+{
+  "id": "930E-ED39-95A2-37D6",
+  "title": "SSO / SAML integration",
+  "status": "backlog",
+  "priority": "high",
+  "project": "Gemini",
+  "summary": "Enterprise SSO via SAML & OIDC.",
+  "description": "Okta and Azure AD support, SCIM user provisioning, and just-in-time accounts.",
+  "tags": [
+    "web",
+    "security",
+    "enterprise"
+  ],
+  "start_date": "2026-07-20",
+  "due_date": "2026-09-05",
+  "completed_date": null,
+  "percent_complete": 0,
+  "depends_on": [
+    "4981-D3C1-BEB9-6D08"
+  ],
+  "checklist": [],
+  "notes": [],
+  "attachments": [],
+  "extra": {}
+}

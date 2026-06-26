@@ -1,0 +1,24 @@
+{
+  "id": "3A50-8178-5FFE-C65A",
+  "title": "Data warehouse ETL",
+  "status": "working",
+  "priority": "high",
+  "project": "Atlas",
+  "summary": "Reliable ingestion into the warehouse.",
+  "description": "Airbyte sources into BigQuery/Snowflake with dbt transforms and freshness tests.",
+  "tags": [
+    "data",
+    "etl"
+  ],
+  "start_date": "2026-06-20",
+  "due_date": "2026-08-12",
+  "completed_date": null,
+  "percent_complete": 30,
+  "depends_on": [
+    "36C3-AD33-0DD2-0724"
+  ],
+  "checklist": [],
+  "notes": [],
+  "attachments": [],
+  "extra": {}
+}

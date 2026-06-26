@@ -1,0 +1,34 @@
+{
+  "id": "M-BETA-2026",
+  "title": "Public Beta",
+  "status": "active",
+  "color": "#2e6fd8",
+  "summary": "First public beta across the app, web, and platform teams.",
+  "description": "The cross-project work required to open the public beta: a usable mobile and web experience on hardened infrastructure.",
+  "projects": [
+    "Apollo",
+    "Gemini",
+    "Mercury"
+  ],
+  "start_date": "2026-06-15",
+  "target_date": "2026-08-15",
+  "task_ids": [
+    "5CDB-33CE-0665-8667",
+    "49D9-B6A2-1C0E-1789",
+    "4DFB-9775-281E-65C1",
+    "B68F-19C9-6AC9-F957",
+    "4981-D3C1-BEB9-6D08",
+    "A6C5-343C-412B-B4F5",
+    "FF27-5130-AC46-B05C",
+    "3067-802D-56B9-4A0A",
+    "5D72-1760-D67E-5801"
+  ],
+  "notes": [
+    {
+      "created_at": "2026-06-23T10:00:00",
+      "body": "Beta gate: onboarding, realtime, and observability must be green."
+    }
+  ],
+  "attachments": [],
+  "extra": {}
+}

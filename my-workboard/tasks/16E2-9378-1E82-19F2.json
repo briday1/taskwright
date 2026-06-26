@@ -1,0 +1,43 @@
+{
+  "id": "16E2-9378-1E82-19F2",
+  "title": "Component library v1",
+  "status": "working",
+  "priority": "high",
+  "project": "Orion",
+  "summary": "Reusable, accessible React components.",
+  "description": "Buttons, inputs, modals, and tables documented in Storybook. See the tokens.",
+  "tags": [
+    "design",
+    "frontend"
+  ],
+  "start_date": "2026-06-10",
+  "due_date": "2026-07-22",
+  "completed_date": null,
+  "percent_complete": 60,
+  "depends_on": [],
+  "checklist": [
+    {
+      "text": "Buttons & inputs",
+      "done": true
+    },
+    {
+      "text": "Overlays",
+      "done": true
+    },
+    {
+      "text": "Data table",
+      "done": false
+    }
+  ],
+  "notes": [],
+  "attachments": [
+    {
+      "filename": "design-tokens.txt",
+      "path": "assets/16E2-9378-1E82-19F2/design-tokens.txt",
+      "kind": "file",
+      "description": "",
+      "uploaded_at": "2026-06-26T16:29:14"
+    }
+  ],
+  "extra": {}
+}

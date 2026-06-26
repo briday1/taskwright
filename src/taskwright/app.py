@@ -42,7 +42,6 @@ from .task_store import (
     load_milestone,
     load_program,
     load_task,
-    move_task_in_milestone,
     project_colors,
     register_project,
     remove_task_from_milestone,
@@ -467,6 +466,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         milestone_id: str,
         title: str = Form(...),
         status: str = Form("active"),
+        color: str = Form("#3567e0"),
         summary: str = Form(""),
         description: str = Form(""),
         projects: list[str] = Form(default=[]),
@@ -477,6 +477,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         milestone = load_milestone(workspace, milestone_id)
         milestone.title = title
         milestone.status = status if status in {"planned", "active", "done"} else "active"
+        milestone.color = (color or "").strip() or "#3567e0"
         milestone.summary = summary
         milestone.description = description
         milestone.projects = [p.strip() for p in projects if p.strip()]
@@ -562,21 +563,6 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         f_view: str = "board",
     ) -> HTMLResponse:
         remove_task_from_milestone(workspace, milestone_id, task_id)
-        return templates.TemplateResponse(
-            request,
-            "partials/main.html",
-            context(request, view=f_view, milestone=milestone_id),
-        )
-
-    @app.post("/milestones/{milestone_id}/tasks/{task_id}/move/{direction}", response_class=HTMLResponse)
-    def milestone_move_task_route(
-        request: Request,
-        milestone_id: str,
-        task_id: str,
-        direction: str,
-        f_view: str = "board",
-    ) -> HTMLResponse:
-        move_task_in_milestone(workspace, milestone_id, task_id, direction)
         return templates.TemplateResponse(
             request,
             "partials/main.html",

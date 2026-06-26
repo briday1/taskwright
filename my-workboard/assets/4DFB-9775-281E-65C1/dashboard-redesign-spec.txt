@@ -1,0 +1,6 @@
+Dashboard Redesign Spec
+
+- Card-based layout with a responsive grid
+- Saved views & filters
+- Live activity feed
+- Keyboard shortcuts

@@ -1,4 +1,4 @@
-<section class="milestone-banner">
+<section class="milestone-banner" style="--ms-color: {{ selected_milestone.color or '#3567e0' }}">
   <div class="mb-head">
     <div class="mb-title">
       <span class="mb-flag" aria-hidden="true">◆</span>
@@ -20,7 +20,7 @@
   </div>
   <div class="mb-rollup">
     <div class="mb-progress" title="{{ rollup.progress }}% complete">
-      <div style="width: {{ rollup.progress }}%"></div>
+      <div style="width: {{ rollup.progress }}%; background: {{ selected_milestone.color or '#3567e0' }}"></div>
     </div>
     <div class="mb-stats">
       <span><strong>{{ rollup.total }}</strong> tasks</span>

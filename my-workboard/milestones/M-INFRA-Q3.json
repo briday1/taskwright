@@ -1,0 +1,28 @@
+{
+  "id": "M-INFRA-Q3",
+  "title": "Infra Hardening Q3",
+  "status": "active",
+  "color": "#2e9bb0",
+  "summary": "Reliability, security, and data-compliance hardening for Q3.",
+  "description": "Platform and data work to make the service production-grade: Kubernetes, observability, secrets, DR, and GDPR tooling.",
+  "projects": [
+    "Mercury",
+    "Atlas"
+  ],
+  "start_date": "2026-06-05",
+  "target_date": "2026-09-15",
+  "task_ids": [
+    "A6C5-343C-412B-B4F5",
+    "FF27-5130-AC46-B05C",
+    "E990-04B9-035B-3FE4",
+    "D6A8-B51E-2F3A-35A2",
+    "36C3-AD33-0DD2-0724",
+    "3A50-8178-5FFE-C65A",
+    "F8ED-5140-AECD-A980",
+    "67CC-0A69-D538-4DF0"
+  ],
+  "notes": [],
+  "attachments": [],
+  "extra": {}
+}
+

@@ -16,6 +16,9 @@ Open the **Milestones** view from the toolbar to see every milestone as a card w
 - assigned projects, and
 - target date.
 
+Each milestone also has its own **colour**, which tints its card and rollup visuals so milestones
+are easy to distinguish at a glance.
+
 Create a milestone with the **New milestone** form at the bottom of the view.
 
 ## Opening a milestone (filter + rollup)
@@ -33,20 +36,22 @@ Use **Clear milestone** (in the banner) or remove the pill to return to all task
 ## Editing a milestone
 
 The side panel lets you edit the milestone's title, status (`planned` / `active` / `done`),
-summary, description, start and target dates, and the **projects** it spans (a milestone can belong
-to multiple projects). It also has its own **notes** and **attachments**.
+**colour**, summary, description, start and target dates, and the **projects** it spans (a
+milestone can belong to multiple projects). It also has its own **notes** and **attachments**.
 
 ## Managing tasks in a milestone
 
-From the milestone panel you can:
+From the milestone panel, the **Tasks** section lists every task in the milestone in a scrollable
+box and lets you:
 
-- **Reorder** tasks with the ▲ / ▼ controls — the order is stored in `task_ids`.
-- **Remove** a task from the milestone with the × (this does not delete the task).
-- **Add an existing task** with a search-as-you-type picker that finds tasks by name and shows their
+- **Add a task** with a search-as-you-type picker that finds existing tasks by name and shows their
   status, project, due date, and id.
-- **Create a new task** directly in the milestone — it is created and added to the milestone in one
-  step.
+- **Quick-add a new task** with the **+ New task** button pinned at the bottom of the task box. The
+  button stays visible while the task list scrolls and creates a task already added to the
+  milestone.
+- **Remove** a task from the milestone with the × (this does not delete the task).
 
-Clicking a task in the ordered list opens that task's detail panel (the milestone filter stays
-active so you can move between the milestone and its tasks).
+Clicking a task opens that task's detail panel (the milestone filter stays active so you can move
+between the milestone and its tasks). Task ordering and prioritisation live in the task views
+themselves, so the milestone simply shows the set of tasks it groups.
 </content>

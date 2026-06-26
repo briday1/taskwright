@@ -1,0 +1,27 @@
+{
+  "id": "FF27-5130-AC46-B05C",
+  "title": "Observability stack",
+  "status": "working",
+  "priority": "high",
+  "project": "Mercury",
+  "summary": "Metrics, logs, and traces in one place.",
+  "description": "Prometheus + Loki + Tempo with Grafana dashboards and SLO alerts.",
+  "tags": [
+    "infra",
+    "observability"
+  ],
+  "start_date": "2026-06-08",
+  "due_date": "2026-07-30",
+  "completed_date": null,
+  "percent_complete": 65,
+  "depends_on": [],
+  "checklist": [],
+  "notes": [
+    {
+      "created_at": "2026-06-22T13:45:00",
+      "body": "Tracing is live for the API gateway; dashboards next."
+    }
+  ],
+  "attachments": [],
+  "extra": {}
+}

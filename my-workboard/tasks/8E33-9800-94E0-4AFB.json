@@ -1,0 +1,22 @@
+{
+  "id": "8E33-9800-94E0-4AFB",
+  "title": "Billing & subscriptions",
+  "status": "working",
+  "priority": "high",
+  "project": "Gemini",
+  "summary": "Stripe-backed plans and seats.",
+  "description": "Self-serve upgrades, proration, dunning emails, and invoices.",
+  "tags": [
+    "web",
+    "billing"
+  ],
+  "start_date": "2026-06-25",
+  "due_date": "2026-08-25",
+  "completed_date": null,
+  "percent_complete": 25,
+  "depends_on": [],
+  "checklist": [],
+  "notes": [],
+  "attachments": [],
+  "extra": {}
+}

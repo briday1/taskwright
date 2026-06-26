@@ -1,0 +1,30 @@
+{
+  "id": "M-GA-1-0",
+  "title": "1.0 GA Launch",
+  "status": "planned",
+  "color": "#8a5cd1",
+  "summary": "General availability of 1.0 with enterprise and growth readiness.",
+  "description": "Everything needed to charge money and sell to enterprises: SSO, billing, a polished design system, and a refreshed marketing site.",
+  "projects": [
+    "Apollo",
+    "Gemini",
+    "Helios",
+    "Orion"
+  ],
+  "start_date": "2026-07-15",
+  "target_date": "2026-10-01",
+  "task_ids": [
+    "AEAD-0393-1F72-603E",
+    "3F47-D169-7FAF-AB3E",
+    "930E-ED39-95A2-37D6",
+    "8E33-9800-94E0-4AFB",
+    "16E2-9378-1E82-19F2",
+    "683F-4CD4-AD39-14FE",
+    "C471-2AD4-E6A3-C8EF",
+    "F111-62C3-F785-2B7B",
+    "C45F-745D-9036-80FF"
+  ],
+  "notes": [],
+  "attachments": [],
+  "extra": {}
+}
