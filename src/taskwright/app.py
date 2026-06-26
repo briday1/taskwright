@@ -43,6 +43,7 @@ from .task_store import (
     load_all_tasks,
     load_all_projects,
     load_milestone,
+    load_workspace_config,
     load_task,
     project_colors,
     register_project,
@@ -63,8 +64,10 @@ def markdown_filter(text: str) -> str:
 def create_app(workspace: str | Path = ".") -> FastAPI:
     workspace = Path(workspace).resolve()
     ensure_workspace(workspace)
+    initial_config = load_workspace_config(workspace)
+    app_name = initial_config["app_name"] or "Taskwright"
 
-    app = FastAPI(title="Taskwright")
+    app = FastAPI(title=app_name)
     templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
     templates.env.filters["markdown"] = markdown_filter
 
@@ -90,6 +93,18 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         except (TypeError, ValueError):
             return None
         return month if 1 <= month <= 12 else None
+
+    def ui_config() -> dict[str, str]:
+        config = load_workspace_config(workspace)
+        app_name = config["app_name"] or "Taskwright"
+        workspace_name = config["workspace_name"] or workspace_label(workspace)
+        export_title = config["export_title"] or workspace_name
+        return {
+            "app_name": app_name,
+            "workspace_name": workspace_name,
+            "workspace_description": config["workspace_description"],
+            "export_title": export_title,
+        }
 
     def parse_calendar_year(value: str | int | None) -> int | None:
         try:
@@ -159,6 +174,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         year_prev_year = focus_year - 1
         year_next_month = focus_month
         year_next_year = focus_year + 1
+        config = ui_config()
         all_tasks = load_all_tasks(workspace)
         milestones = load_all_milestones(workspace)
         tasks_by_id = {t.id: t for t in all_tasks}
@@ -238,8 +254,8 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
 
         return {
             "request": request,
-            "app_name": "Taskwright",
-            "workspace_name": workspace_label(workspace),
+            "app_name": config["app_name"],
+            "workspace_name": config["workspace_name"],
             "model": dashboard_model(filtered),
             "statuses": STATUSES,
             "selected_task": selected_task,
@@ -1033,9 +1049,10 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
             tasks, _ = hide_stale_closed_tasks(tasks, parse_stale_days(stale_days))
         projects = load_all_projects(workspace)
         ordered_project_names = [p.name for p in available_projects(projects, tasks)]
+        config = ui_config()
         data = tasks_to_jsonantt(
             tasks,
-            title=workspace_label(workspace),
+            title=config["export_title"],
             project_colors=project_colors(projects, tasks),
             project_order=ordered_project_names,
         )

@@ -11,6 +11,9 @@ from typing import Any
 
 from .models import Attachment, Milestone, Note, Project, Task
 
+DEFAULT_WORKSPACE_APP_NAME = "Taskwright"
+DEFAULT_WORKSPACE_DESCRIPTION = "Local file-backed workspace/task tracker"
+
 
 class WorkspaceError(RuntimeError):
     pass
@@ -33,6 +36,9 @@ def ensure_workspace(workspace: Path) -> None:
     paths["tasks"].mkdir(parents=True, exist_ok=True)
     paths["milestones"].mkdir(parents=True, exist_ok=True)
     paths["assets"].mkdir(parents=True, exist_ok=True)
+    config = workspace / "config.json"
+    if not config.exists():
+        save_json(config, default_workspace_config(workspace))
 
 
 def init_workspace(workspace: Path, with_sample: bool = True) -> None:
@@ -129,8 +135,36 @@ def upsert_project(workspace: Path, name: str, description: str = "", color: str
 
 
 def workspace_label(workspace: Path) -> str:
-    label = (workspace.name or "Taskwright").replace("_", " ").replace("-", " ").strip()
-    return label.title() if label else "Taskwright"
+    config_name = (load_workspace_config(workspace).get("workspace_name") or "").strip()
+    if config_name:
+        return config_name
+    return _workspace_label_from_path(workspace)
+
+
+def _workspace_label_from_path(workspace: Path) -> str:
+    label = (workspace.name or DEFAULT_WORKSPACE_APP_NAME).replace("_", " ").replace("-", " ").strip()
+    return label.title() if label else DEFAULT_WORKSPACE_APP_NAME
+
+
+def default_workspace_config(workspace: Path) -> dict[str, str]:
+    workspace_name = _workspace_label_from_path(workspace)
+    return {
+        "app_name": DEFAULT_WORKSPACE_APP_NAME,
+        "workspace_name": workspace_name,
+        "workspace_description": DEFAULT_WORKSPACE_DESCRIPTION,
+        "export_title": workspace_name,
+    }
+
+
+def load_workspace_config(workspace: Path) -> dict[str, str]:
+    ensure_workspace(workspace)
+    defaults = default_workspace_config(workspace)
+    raw = load_json(workspace / "config.json")
+    config: dict[str, str] = {}
+    for key, fallback in defaults.items():
+        value = raw.get(key)
+        config[key] = value.strip() if isinstance(value, str) else fallback
+    return config
 
 
 def load_task(workspace: Path, task_id: str) -> Task:
