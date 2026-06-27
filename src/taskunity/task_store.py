@@ -502,6 +502,8 @@ def git_sync(workspace: Path) -> dict[str, Any]:
         result["message"] = status["message"] or "This workspace is not inside a git repository."
         return result
     try:
+        branch = status["branch"] or _git(workspace, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip() or "main"
+
         if status["dirty"]:
             _git(workspace, "add", "-A", "--", ".")
             commit = _git(
@@ -510,10 +512,41 @@ def git_sync(workspace: Path) -> dict[str, Any]:
             if commit.returncode != 0 and "nothing to commit" not in (commit.stdout + commit.stderr).lower():
                 result["message"] = "Commit failed: " + (commit.stderr.strip() or commit.stdout.strip())
                 return result
-        if not status["upstream"]:
+
+        # Fresh/empty repo safety: if there is no HEAD commit yet, create one so push can succeed.
+        has_head = _git(workspace, "rev-parse", "--verify", "HEAD").returncode == 0
+        if not has_head:
+            init_commit = _git(
+                workspace,
+                "commit",
+                "--allow-empty",
+                "-m",
+                f"taskunity: initialize workspace ({datetime.now():%Y-%m-%d %H:%M})",
+            )
+            if init_commit.returncode != 0 and "nothing to commit" not in (init_commit.stdout + init_commit.stderr).lower():
+                result["message"] = "Commit failed: " + (init_commit.stderr.strip() or init_commit.stdout.strip())
+                return result
+
+        upstream = status["upstream"]
+        if upstream:
+            upstream_ref = _git(workspace, "show-ref", "--verify", "--quiet", f"refs/remotes/{upstream}")
+            if upstream_ref.returncode != 0:
+                upstream = None
+
+        if not upstream:
+            origin = _git(workspace, "remote", "get-url", "origin")
+            if origin.returncode != 0:
+                result["ok"] = True
+                result["message"] = "Committed locally. No upstream is configured and no 'origin' remote was found."
+                return result
+            set_upstream = _git(workspace, "push", "-u", "origin", branch)
+            if set_upstream.returncode != 0:
+                result["message"] = "Push failed: " + (set_upstream.stderr.strip() or set_upstream.stdout.strip())
+                return result
             result["ok"] = True
-            result["message"] = "Committed locally. No upstream is configured, so nothing was pushed."
+            result["message"] = f"Synced and set upstream to origin/{branch}."
             return result
+
         pull = _git(workspace, "pull", "--no-edit")
         if pull.returncode != 0:
             result["message"] = "Pull failed: " + (pull.stderr.strip() or pull.stdout.strip())
