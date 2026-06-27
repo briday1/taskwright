@@ -1058,36 +1058,25 @@ button:focus-visible { outline: none; box-shadow: var(--ring); }
   width: 100%;
   display: inline-grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: .42rem;
+  gap: .55rem;
   align-items: center;
-  color: var(--text);
   text-align: left;
   background: var(--bg-soft);
   border: 1px solid var(--line);
-  padding: .68rem .8rem;
+  color: var(--text);
   box-shadow: none;
   padding: .45rem .6rem;
 }
 .check-toggle:hover { filter: none; border-color: color-mix(in srgb, var(--line) 55%, var(--accent)); }
 .check-mark {
   width: 1.2rem;
-  gap: .5rem;
+  height: 1.2rem;
   border: 1px solid color-mix(in srgb, var(--line) 60%, var(--accent));
   border-radius: .3rem;
   display: inline-flex;
-  font-size: .93rem;
+  align-items: center;
   justify-content: center;
   font-weight: 700;
-.milestone-open-row {
-  width: 100%;
-  text-align: left;
-  box-shadow: var(--shadow-sm);
-}
-.milestone-open-row:hover {
-  filter: none;
-  border-color: color-mix(in srgb, var(--line) 60%, var(--accent));
-  box-shadow: var(--shadow-md);
-}
   color: var(--accent);
   background: #fff;
 }
@@ -1414,17 +1403,6 @@ input[type="file"]::file-selector-button:hover {
 .ms-status.done { background: color-mix(in srgb, var(--done) 14%, white); color: var(--done); border-color: color-mix(in srgb, var(--done) 35%, var(--line)); }
 .ms-status.planned { background: var(--bg-soft); color: var(--muted); }
 
-.milestone-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: .8rem; }
-.milestone-card {
-  display: flex;
-  flex-direction: column;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-left: 4px solid var(--ms-color, var(--accent));
-  border-radius: var(--radius);
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-}
 .milestone-list {
   display: grid;
   gap: .7rem;
@@ -1474,21 +1452,6 @@ input[type="file"]::file-selector-button:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.milestone-open {
-  flex: 1;
-  display: grid;
-  gap: .5rem;
-  text-align: left;
-  background: transparent;
-  color: var(--text);
-  border: none;
-  border-radius: 0;
-  padding: .9rem 1rem;
-  box-shadow: none;
-}
-.milestone-open:hover { filter: none; background: var(--bg-soft); }
-.mc-head { display: flex; align-items: center; gap: .45rem; }
-.mc-head strong { flex: 1; font-size: 1rem; }
 .mc-flag { color: var(--ms-color, var(--accent)); font-size: .8rem; }
 .mc-summary { margin: 0; color: var(--muted); font-size: .85rem; }
 .mc-projects { display: flex; flex-wrap: wrap; gap: .3rem; }
@@ -1501,7 +1464,6 @@ input[type="file"]::file-selector-button:hover {
 .mc-progress > div, .mb-progress > div { height: 100%; background: var(--accent); border-radius: 999px; }
 .mc-stats { display: flex; flex-wrap: wrap; gap: .6rem; font-size: .76rem; color: var(--muted); }
 .mc-target { margin-left: auto; }
-.mc-foot { border-top: 1px solid var(--line); padding: .4rem 1rem; display: flex; justify-content: flex-end; }
 .new-milestone-form { margin-top: 1.1rem; border-top: 1px solid var(--line); padding-top: 1rem; display: grid; gap: .6rem; }
 .new-milestone-form h3 { margin: 0; font-size: .95rem; }
 
