@@ -26,9 +26,6 @@ burndown charts, and an editable task side panel.
 |-------------------|------------------|
 | ![Task Panel](docs/_static/screenshots/task-panel.png) | ![Settings Popup](docs/_static/screenshots/settings-popup.png) |
 
-| Task Burndown Chart | Milestone Burndown Chart |
-|---------------------|--------------------------|
-| ![Task Burndown](docs/_static/screenshots/task-burndown.png) | ![Milestone Burndown](docs/_static/screenshots/milestone-burndown.png) |
 
 ## Why Taskunity
 
