@@ -133,6 +133,15 @@
             <span class="git-badge warn" title="No upstream remote configured">no remote</span>
           {% endif %}
           {% if git.dirty %}<span class="git-badge dirty" title="{{ git.dirty }} uncommitted change(s)">●{{ git.dirty }}</span>{% endif %}
+          {% if git_lfs.available %}
+            {% if git_lfs.enabled and git_lfs.tracking_assets %}
+              <span class="git-badge ok" title="Git LFS is enabled and tracking assets">LFS</span>
+            {% elif git_lfs.enabled %}
+              <span class="git-badge warn" title="Git LFS is enabled, but assets are not tracked yet">LFS partial</span>
+            {% else %}
+              <span class="git-badge warn" title="Git LFS is available but not enabled">LFS off</span>
+            {% endif %}
+          {% endif %}
           <form hx-post="/git/sync" hx-target="#app-main" hx-swap="outerHTML" class="git-sync-form">
             {% for p in filters.projects %}<input type="hidden" name="f_project" value="{{ p }}">{% endfor %}
             <input type="hidden" name="f_from" value="{{ filters.date_from }}">
@@ -147,6 +156,22 @@
             <input type="hidden" name="f_calendar_year" value="{{ filters.calendar_year }}">
             <button type="submit" class="git-sync-btn" title="Commit local changes, pull, and push">Sync</button>
           </form>
+          {% if git_lfs.available and not git_lfs.enabled %}
+            <form hx-post="/git/lfs/init" hx-target="#app-main" hx-swap="outerHTML" class="git-sync-form">
+              {% for p in filters.projects %}<input type="hidden" name="f_project" value="{{ p }}">{% endfor %}
+              <input type="hidden" name="f_from" value="{{ filters.date_from }}">
+              <input type="hidden" name="f_to" value="{{ filters.date_to }}">
+              <input type="hidden" name="f_q" value="{{ filters.q }}">
+              <input type="hidden" name="f_view" value="{{ filters.view }}">
+              <input type="hidden" name="f_sort" value="{{ filters.sort }}">
+              <input type="hidden" name="f_milestone" value="{{ filters.milestone }}">
+              <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
+              <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
+              <input type="hidden" name="f_calendar_month" value="{{ filters.calendar_month }}">
+              <input type="hidden" name="f_calendar_year" value="{{ filters.calendar_year }}">
+              <button type="submit" class="git-sync-btn secondary" title="Enable git-lfs and track assets">Enable LFS</button>
+            </form>
+          {% endif %}
         {% else %}
           <span class="git-branch">No git repo</span>
         {% endif %}

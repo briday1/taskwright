@@ -11,7 +11,7 @@ pip install -e ".[dev]"
 ## Running locally
 
 ```bash
-taskwright serve --workspace ./my-workboard --reload
+taskunity serve --workspace ./my-workboard --reload
 ```
 
 `--reload` enables uvicorn auto-reload so Python changes are picked up without restarting. Template,
@@ -28,12 +28,12 @@ ruff check .
 ## Project layout
 
 ```text
-src/taskwright/
+src/taskunity/
   app.py          # FastAPI app factory, routes, context builder
-  cli.py          # `taskwright` CLI (init / serve)
-  models.py       # Pydantic models (Task, etc.)
+  cli.py          # `taskunity` CLI (init / serve)
+  models.py       # Pydantic models (Task, TaskActivityEvent, etc.)
   render.py       # sorting, filtering, dashboard / timeline / calendar builders
-  task_store.py   # workspace file I/O, task CRUD, git integration
+  task_store.py   # workspace file I/O, task CRUD, git integration, git-lfs
   templates/      # Jinja2 templates and HTMX partials
   static/         # CSS and the lightweight client script
 ```

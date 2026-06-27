@@ -26,10 +26,10 @@ from .render import (
     tasks_to_jsonantt,
 )
 from .task_store import (
-    add_attachment,
     add_milestone_attachment,
     add_milestone_note,
-    add_note,
+    add_task_activity_image,
+    add_task_activity_note,
     add_task_to_milestone,
     available_projects,
     create_milestone,
@@ -37,8 +37,11 @@ from .task_store import (
     delete_milestone,
     delete_task,
     ensure_workspace,
+    git_lfs_init,
+    git_lfs_status,
     git_status,
     git_sync,
+    log_progress_change,
     load_all_milestones,
     load_all_tasks,
     load_all_projects,
@@ -58,6 +61,91 @@ PACKAGE_DIR = Path(__file__).parent
 
 def markdown_filter(text: str) -> str:
     return markdown_lib.markdown(text or "", extensions=["extra", "sane_lists"])
+
+
+def build_task_activity_entries(task: Task | None) -> list[dict[str, object]]:
+    if task is None:
+        return []
+
+    entries: list[dict[str, object]] = []
+    for note in task.notes:
+        entries.append(
+            {
+                "kind": "note",
+                "created_at": note.created_at,
+                "body": note.body,
+                "filename": None,
+                "path": None,
+                "is_image": False,
+                "progress_before": None,
+                "progress_after": None,
+            }
+        )
+    for attachment in task.attachments:
+        entries.append(
+            {
+                "kind": "image" if attachment.kind == "image" else "file",
+                "created_at": attachment.uploaded_at,
+                "body": attachment.description,
+                "filename": attachment.filename,
+                "path": attachment.path,
+                "is_image": attachment.kind == "image",
+                "progress_before": None,
+                "progress_after": None,
+            }
+        )
+    for event in task.activity:
+        if event.event_type == "progress_update":
+            entries.append(
+                {
+                    "kind": "progress_update",
+                    "created_at": event.created_at,
+                    "body": None,
+                    "filename": None,
+                    "path": None,
+                    "is_image": False,
+                    "progress_before": event.progress_before,
+                    "progress_after": event.progress_after,
+                }
+            )
+        elif event.event_type == "image":
+            image_name = event.image_filename or event.image_path or ""
+            is_image = Path(image_name).suffix.lower() in {
+                ".png",
+                ".jpg",
+                ".jpeg",
+                ".gif",
+                ".webp",
+                ".bmp",
+                ".svg",
+            }
+            entries.append(
+                {
+                    "kind": "image" if is_image else "file",
+                    "created_at": event.created_at,
+                    "body": event.note_text,
+                    "filename": event.image_filename,
+                    "path": event.image_path,
+                    "is_image": is_image,
+                    "progress_before": None,
+                    "progress_after": None,
+                }
+            )
+        else:
+            entries.append(
+                {
+                    "kind": "note",
+                    "created_at": event.created_at,
+                    "body": event.note_text,
+                    "filename": None,
+                    "path": None,
+                    "is_image": False,
+                    "progress_before": None,
+                    "progress_after": None,
+                }
+            )
+
+    return sorted(entries, key=lambda item: str(item.get("created_at") or ""), reverse=True)
 
 
 def create_app(workspace: str | Path = ".") -> FastAPI:
@@ -265,7 +353,9 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
             "sorts": SORTS,
             "calendar": build_calendar(filtered, date_from, date_to, focus_month, focus_year),
             "git": git_status(workspace),
+            "git_lfs": git_lfs_status(workspace),
             "git_message": git_message,
+            "task_activity_entries": build_task_activity_entries(selected_task),
             "task_index": [
                 {
                     "id": t.id,
@@ -463,7 +553,9 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         task.start_date = start_date or None
         task.due_date = due_date or None
         task.completed_date = completed_date or None
+        old_progress = task.percent_complete
         task.percent_complete = max(0, min(int(percent_complete), 100))
+        log_progress_change(workspace, task, old_progress, task.percent_complete)
         task.depends_on = [x.strip() for x in depends_on.split(",") if x.strip()]
         checklist = []
         for line in checklist_text.splitlines():
@@ -636,7 +728,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
 
     @app.post("/tasks/{task_id}/note", response_class=HTMLResponse)
     async def add_note_route(request: Request, task_id: str, body: str = Form("")) -> HTMLResponse:
-        task = add_note(workspace, task_id, body)
+        task = add_task_activity_note(workspace, task_id, body)
         return templates.TemplateResponse(request, "partials/task_panel.html", context(request, task))
 
     @app.post("/tasks/{task_id}/attachment", response_class=HTMLResponse)
@@ -646,7 +738,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         attachment: UploadFile = File(...),
         description: str = Form(""),
     ) -> HTMLResponse:
-        task = add_attachment(
+        task = add_task_activity_image(
             workspace,
             task_id,
             attachment.filename or "attachment.bin",
@@ -655,6 +747,33 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
             description,
         )
         return templates.TemplateResponse(request, "partials/task_panel.html", context(request, task))
+
+    @app.get("/tasks/{task_id}/burndown.json")
+    def task_burndown_json(task_id: str) -> Response:
+        task = load_task(workspace, task_id)
+        points: list[dict[str, object]] = []
+        progress_events = [event for event in task.activity if event.event_type == "progress_update"]
+        if not progress_events:
+            points.append(
+                {
+                    "x": task.extra.get("created_at", ""),
+                    "y": 100 - task.percent_complete,
+                    "label": f"Current: {task.percent_complete}%",
+                }
+            )
+        else:
+            for event in sorted(progress_events, key=lambda item: item.created_at):
+                points.append(
+                    {
+                        "x": event.created_at,
+                        "y": 100 - (event.progress_after or 0),
+                        "label": f"{event.progress_before}% → {event.progress_after}%",
+                    }
+                )
+        return Response(
+            json.dumps({"task_id": task_id, "title": task.title, "points": points}),
+            media_type="application/json",
+        )
 
     @app.post("/tasks/{task_id}/complete", response_class=HTMLResponse)
     async def complete_task_route(
@@ -675,7 +794,9 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
             task.completed_date = None
         else:
             task.status = "done"
+            old_progress = task.percent_complete
             task.percent_complete = 100
+            log_progress_change(workspace, task, old_progress, task.percent_complete)
             if not task.completed_date:
                 task.completed_date = date.today().isoformat()
         save_task(workspace, task)
@@ -783,6 +904,52 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
                 show_closed=parse_toggle(show_closed),
                 stale_days=parse_stale_days(stale_days),
             ),
+        )
+
+    @app.get("/milestones/{milestone_id}/burndown.json")
+    def milestone_burndown_json(milestone_id: str) -> Response:
+        milestone = load_milestone(workspace, milestone_id)
+        all_tasks = load_all_tasks(workspace)
+        tasks_by_id = {task.id: task for task in all_tasks}
+        milestone_tasks = [tasks_by_id[task_id] for task_id in milestone.task_ids if task_id in tasks_by_id]
+
+        all_events: list[tuple[str, Task, object]] = []
+        for task in milestone_tasks:
+            for event in task.activity:
+                if event.event_type == "progress_update":
+                    all_events.append((event.created_at, task, event))
+        all_events.sort(key=lambda item: item[0])
+
+        task_progress = {task.id: 0 for task in milestone_tasks}
+
+        points: list[dict[str, object]] = []
+        if not all_events:
+            if milestone_tasks:
+                avg_remaining = round(
+                    sum(100 - task.percent_complete for task in milestone_tasks) / len(milestone_tasks)
+                )
+                points.append(
+                    {
+                        "x": milestone.start_date or "",
+                        "y": avg_remaining,
+                        "label": f"{len(milestone_tasks)} tasks, avg remaining: {avg_remaining}%",
+                    }
+                )
+        else:
+            for created_at, task, event in all_events:
+                task_progress[task.id] = event.progress_after
+                avg_remaining = round(sum(100 - progress for progress in task_progress.values()) / len(task_progress))
+                points.append(
+                    {
+                        "x": created_at,
+                        "y": avg_remaining,
+                        "label": f"{task.title}: {event.progress_before}% → {event.progress_after}%",
+                    }
+                )
+
+        return Response(
+            json.dumps({"milestone_id": milestone_id, "title": milestone.title, "points": points}),
+            media_type="application/json",
         )
 
     @app.post("/milestones/{milestone_id}/save", response_class=HTMLResponse)
@@ -980,6 +1147,42 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
             ),
         )
 
+    @app.post("/git/lfs/init", response_class=HTMLResponse)
+    def git_lfs_init_route(
+        request: Request,
+        f_project: list[str] = Form(default=[]),
+        f_from: str = Form(""),
+        f_to: str = Form(""),
+        f_q: str = Form(""),
+        f_view: str = Form("board"),
+        f_sort: str = Form("priority"),
+        f_milestone: str = Form(""),
+        f_show_closed: str = Form(""),
+        f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
+        f_calendar_month: str = Form(""),
+        f_calendar_year: str = Form(""),
+    ) -> HTMLResponse:
+        result = git_lfs_init(workspace)
+        return templates.TemplateResponse(
+            request,
+            "partials/main.html",
+            context(
+                request,
+                projects=f_project,
+                date_from=f_from,
+                date_to=f_to,
+                q=f_q,
+                sort=f_sort,
+                view=f_view,
+                milestone=f_milestone,
+                show_closed=parse_toggle(f_show_closed),
+                stale_days=parse_stale_days(f_stale_days),
+                calendar_month=parse_calendar_month(f_calendar_month),
+                calendar_year=parse_calendar_year(f_calendar_year),
+                git_message=result["message"],
+            ),
+        )
+
     @app.get("/export/csv")
     def export_csv(
         project: list[str] = Query(default=[]),
@@ -1028,7 +1231,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         return Response(
             buffer.getvalue(),
             media_type="text/csv",
-            headers={"Content-Disposition": "attachment; filename=taskwright-export.csv"},
+            headers={"Content-Disposition": "attachment; filename=taskunity-export.csv"},
         )
 
     @app.get("/export/json")
@@ -1055,7 +1258,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         return Response(
             json.dumps(data, indent=2, ensure_ascii=False),
             media_type="application/json",
-            headers={"Content-Disposition": "attachment; filename=taskwright-export.json"},
+            headers={"Content-Disposition": "attachment; filename=taskunity-export.json"},
         )
 
     @app.get("/healthz")

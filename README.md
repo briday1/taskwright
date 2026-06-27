@@ -1,9 +1,9 @@
-# Taskwright
+# Taskunity
 
 A local-first, file-backed productivity web app for managing tasks. Everything lives in
-plain files on your disk — no database, no account, no cloud. Point Taskwright at a folder and it
-serves a browser UI for dashboards, a Gantt timeline, a Kanban board, a calendar, notes,
-attachments, and an editable task side panel.
+plain files on your disk — no database, no account, no cloud. Point Taskunity at a folder and it
+serves a browser UI for dashboards, a Gantt timeline, a Kanban board, a calendar, activity logs,
+burndown charts, and an editable task side panel.
 
 > Documentation: a full guide is in the [`docs/`](docs/) folder and is set up to build on
 > [Read the Docs](https://readthedocs.org/) (Sphinx + Markdown).
@@ -22,11 +22,15 @@ attachments, and an editable task side panel.
 |------------|----------|
 | ![Milestones](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/milestones.png) | ![Projects](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/projects.png) |
 
-| Task Detail Panel |
-|-------------------|
-| ![Task Panel](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/task-panel.png) |
+| Task Activity Log | Settings (Theme) |
+|-------------------|------------------|
+| ![Task Panel](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/task-panel.png) | ![Settings Popup](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/settings-popup.png) |
 
-## Why Taskwright
+| Task Burndown Chart | Milestone Burndown Chart |
+|---------------------|--------------------------|
+| ![Task Burndown](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/task-burndown.png) | ![Milestone Burndown](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/milestone-burndown.png) |
+
+## Why Taskunity
 
 - **File-backed source of truth.** Each task is a single JSON file you can read, diff, and commit
   to git. The whole workspace is a folder you own.
@@ -52,8 +56,8 @@ workspace/
       screenshot.png
 ```
 
-The app provides a browser UI for viewing dashboards, timelines, task boards, notes, attachments,
-and editing tasks through a side panel.
+The app provides a browser UI for viewing dashboards, timelines, task boards, activity logs,
+burndown charts, and editing tasks through a side panel.
 
 ## Install locally
 
@@ -63,17 +67,17 @@ From a clone of this repository:
 pip install -e .
 ```
 
-This installs the `taskwright` command. (A PyPI release will come later; for now install from
+This installs the `taskunity` command. (A PyPI release will come later; for now install from
 source.)
 
 ## Quick start
 
 ```bash
-taskwright serve --workspace ./my-workboard
+taskunity serve --workspace ./my-workboard
 ```
 
-If the workspace folder does not exist yet, `taskwright serve` will create the empty Taskwright
-structure for you. You can also run it from the current directory and let Taskwright use `.` as
+If the workspace folder does not exist yet, `taskunity serve` will create the empty Taskunity
+structure for you. You can also run it from the current directory and let Taskunity use `.` as
 the workspace.
 
 Then open:
@@ -89,7 +93,7 @@ stub. It does not create starter projects or tasks; use the app to add your own 
 ## Serve an existing workspace
 
 ```bash
-taskwright serve --workspace ./path/to/workspace --host 127.0.0.1 --port 8000
+taskunity serve --workspace ./path/to/workspace --host 127.0.0.1 --port 8000
 ```
 
 | Flag | Default | Description |
@@ -120,13 +124,21 @@ taskwright serve --workspace ./path/to/workspace --host 127.0.0.1 --port 8000
     {"text": "Generate baseline CAF", "done": true},
     {"text": "Export comparison plots", "done": false}
   ],
-  "notes": [
+  "activity": [
     {
+      "id": "a1b2c3d4",
+      "event_type": "note",
       "created_at": "2026-06-26T10:30:00",
-      "body": "Protection-aware version improved sharpness."
+      "note_text": "Protection-aware version improved sharpness."
+    },
+    {
+      "id": "e5f6a7b8",
+      "event_type": "progress_update",
+      "created_at": "2026-06-26T11:00:00",
+      "progress_before": 40,
+      "progress_after": 60
     }
-  ],
-  "attachments": []
+  ]
 }
 ```
 
@@ -163,7 +175,9 @@ Milestones are stored one JSON file per milestone under `milestones/`.
   click-to-filter rollup, and their own notes/attachments/description
 - Click any task (row, card, timeline bar, calendar entry) to open an editable side panel
 - Save edits back to the JSON file; raw JSON editor escape hatch
-- Notes list and attachment/image uploads
+- **Unified activity log** per task: notes, images, and progress changes in chronological order
+- **Task burndown chart**: remaining work over time from progress_update events
+- **Milestone cumulative burndown chart**: aggregate remaining work across all tasks in a milestone
 - Searchable "depends on" picker that resolves names to task ids
 - Project management with custom colors, each stored in its own JSON file
 - Filtering by project, milestone, date range, and free-text search; sortable views

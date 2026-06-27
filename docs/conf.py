@@ -1,15 +1,15 @@
-"""Sphinx configuration for Taskwright documentation."""
+"""Sphinx configuration for Taskunity documentation."""
 
 from __future__ import annotations
 
 from importlib.metadata import version as _pkg_version
 
-project = "Taskwright"
-author = "Taskwright Contributors"
-copyright = "2026, Taskwright Contributors"
+project = "Taskunity"
+author = "Taskunity Contributors"
+copyright = "2026, Taskunity Contributors"
 
 try:
-    release = _pkg_version("taskwright")
+    release = _pkg_version("taskunity")
 except Exception:  # pragma: no cover - docs may build without install
     release = "0.1.0"
 version = release
@@ -32,5 +32,5 @@ templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 html_theme = "furo"
-html_title = f"Taskwright {release}"
+html_title = f"Taskunity {release}"
 html_static_path = ["_static"]

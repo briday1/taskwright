@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import secrets
 import shutil
@@ -9,14 +10,45 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from .models import Attachment, Milestone, Note, Project, Task
+from .models import Attachment, Milestone, Note, Project, Task, TaskActivityEvent
 
-DEFAULT_WORKSPACE_APP_NAME = "Taskwright"
+DEFAULT_WORKSPACE_APP_NAME = "Taskunity"
 DEFAULT_WORKSPACE_DESCRIPTION = "Local file-backed workspace/task tracker"
 
 
 class WorkspaceError(RuntimeError):
     pass
+
+
+# Compiled once: task/milestone IDs are uppercase hex words joined by dashes.
+_ID_RE = re.compile(r'^[A-Z0-9][A-Z0-9\-]*[A-Z0-9]$|^[A-Z0-9]$')
+
+
+def _safe_id(value: str, label: str = "id") -> str:
+    """Validate *value* is a safe ID token, otherwise raise WorkspaceError.
+
+    This is a lightweight pre-check.  Actual path confinement is enforced by
+    ``_safe_subpath``; always prefer that function when constructing file paths.
+    """
+    clean = (value or "").strip()
+    if not clean or not _ID_RE.match(clean) or ".." in clean or "/" in clean or "\\" in clean:
+        raise WorkspaceError(f"Invalid {label}: {value!r}")
+    return clean
+
+
+def _safe_subpath(base: Path, *parts: str) -> Path:
+    """Build ``base / parts`` and verify the result is confined within *base*.
+
+    Uses ``os.path.normpath`` to collapse ``..`` segments so that a crafted
+    component such as ``../../etc/passwd`` resolves outside the workspace and is
+    rejected.  This is the canonical path-injection mitigation pattern.
+    """
+    joined = os.path.join(str(base), *[str(p) for p in parts])
+    normed = os.path.normpath(joined)
+    base_str = os.path.normpath(str(base))
+    if normed != base_str and not normed.startswith(base_str + os.sep):
+        raise WorkspaceError(f"Path traversal detected in: {parts!r}")
+    return Path(normed)
 
 
 def workspace_paths(workspace: Path) -> dict[str, Path]:
@@ -169,7 +201,7 @@ def load_workspace_config(workspace: Path) -> dict[str, str]:
 
 
 def load_task(workspace: Path, task_id: str) -> Task:
-    return Task.model_validate(load_json(workspace / "tasks" / f"{task_id}.json"))
+    return Task.model_validate(load_json(_safe_subpath(workspace / "tasks", f"{task_id}.json")))
 
 
 def load_all_tasks(workspace: Path) -> list[Task]:
@@ -182,7 +214,7 @@ def load_all_tasks(workspace: Path) -> list[Task]:
 
 def save_task(workspace: Path, task: Task) -> None:
     ensure_workspace(workspace)
-    save_json(workspace / "tasks" / f"{task.id}.json", task.model_dump(mode="json"))
+    save_json(_safe_subpath(workspace / "tasks", f"{task.id}.json"), task.model_dump(mode="json"))
 
 
 def _generate_task_id() -> str:
@@ -206,7 +238,7 @@ def create_task(workspace: Path, title: str = "New task") -> Task:
 
 
 def delete_task(workspace: Path, task_id: str) -> None:
-    path = workspace / "tasks" / f"{task_id}.json"
+    path = _safe_subpath(workspace / "tasks", f"{task_id}.json")
     if path.exists():
         path.unlink()
 
@@ -221,24 +253,76 @@ def add_note(workspace: Path, task_id: str, body: str) -> Task:
 
 def add_attachment(workspace: Path, task_id: str, filename: str, content: bytes, content_type: str | None = None, description: str = "") -> Task:
     task = load_task(workspace, task_id)
-    safe_name = Path(filename).name
-    target_dir = workspace / "assets" / task_id
+    safe_name = Path(filename).name  # cross-platform: strips any leading path component
+    target_dir = _safe_subpath(workspace / "assets", task_id)
     target_dir.mkdir(parents=True, exist_ok=True)
-    target_path = target_dir / safe_name
+    target_path = _safe_subpath(target_dir, safe_name)
     target_path.write_bytes(content)
     kind = "image" if (content_type or "").startswith("image/") else "file"
+    rel = os.path.relpath(str(target_path), str(workspace))
+    if rel.startswith(".."):
+        raise WorkspaceError(f"Attachment path escapes workspace: {rel!r}")
     task.attachments.append(
-        Attachment(filename=safe_name, path=f"assets/{task_id}/{safe_name}", kind=kind, description=description.strip())
+        Attachment(filename=safe_name, path=rel, kind=kind, description=description.strip())
     )
     save_task(workspace, task)
     return task
+
+
+def add_task_activity_note(workspace: Path, task_id: str, body: str) -> Task:
+    task = load_task(workspace, task_id)
+    if body.strip():
+        task.activity.append(TaskActivityEvent(event_type="note", note_text=body.strip()))
+        save_task(workspace, task)
+    return task
+
+
+def add_task_activity_image(
+    workspace: Path,
+    task_id: str,
+    filename: str,
+    content: bytes,
+    content_type: str | None = None,
+    description: str = "",
+) -> Task:
+    task = load_task(workspace, task_id)
+    safe_name = Path(filename).name  # cross-platform: strips any leading path component
+    target_dir = _safe_subpath(workspace / "assets", task_id)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target_path = _safe_subpath(target_dir, safe_name)
+    target_path.write_bytes(content)
+    rel = os.path.relpath(str(target_path), str(workspace))
+    if rel.startswith(".."):
+        raise WorkspaceError(f"Image path escapes workspace: {rel!r}")
+    description_text = description.strip() or None
+    task.activity.append(
+        TaskActivityEvent(
+            event_type="image",
+            image_path=rel,
+            image_filename=safe_name,
+            note_text=description_text,
+        )
+    )
+    save_task(workspace, task)
+    return task
+
+
+def log_progress_change(workspace_path: Path, task: Task, old_progress: int, new_progress: int) -> None:
+    if old_progress != new_progress:
+        task.activity.append(
+            TaskActivityEvent(
+                event_type="progress_update",
+                progress_before=old_progress,
+                progress_after=new_progress,
+            )
+        )
 
 
 # --- Milestones -------------------------------------------------------------
 
 
 def load_milestone(workspace: Path, milestone_id: str) -> Milestone:
-    return Milestone.model_validate(load_json(workspace / "milestones" / f"{milestone_id}.json"))
+    return Milestone.model_validate(load_json(_safe_subpath(workspace / "milestones", f"{milestone_id}.json")))
 
 
 def load_all_milestones(workspace: Path) -> list[Milestone]:
@@ -251,7 +335,7 @@ def load_all_milestones(workspace: Path) -> list[Milestone]:
 
 def save_milestone(workspace: Path, milestone: Milestone) -> None:
     ensure_workspace(workspace)
-    save_json(workspace / "milestones" / f"{milestone.id}.json", milestone.model_dump(mode="json"))
+    save_json(_safe_subpath(workspace / "milestones", f"{milestone.id}.json"), milestone.model_dump(mode="json"))
 
 
 def next_milestone_id(workspace: Path) -> str:
@@ -272,10 +356,10 @@ def create_milestone(workspace: Path, title: str = "New milestone") -> Milestone
 
 
 def delete_milestone(workspace: Path, milestone_id: str) -> None:
-    path = workspace / "milestones" / f"{milestone_id}.json"
+    path = _safe_subpath(workspace / "milestones", f"{milestone_id}.json")
     if path.exists():
         path.unlink()
-    assets = workspace / "assets" / milestone_id
+    assets = _safe_subpath(workspace / "assets", milestone_id)
     if assets.exists():
         shutil.rmtree(assets, ignore_errors=True)
 
@@ -297,15 +381,19 @@ def add_milestone_attachment(
     description: str = "",
 ) -> Milestone:
     milestone = load_milestone(workspace, milestone_id)
-    safe_name = Path(filename).name
-    target_dir = workspace / "assets" / milestone_id
+    safe_name = Path(filename).name  # cross-platform: strips any leading path component
+    target_dir = _safe_subpath(workspace / "assets", milestone_id)
     target_dir.mkdir(parents=True, exist_ok=True)
-    (target_dir / safe_name).write_bytes(content)
+    target_path = _safe_subpath(target_dir, safe_name)
+    target_path.write_bytes(content)
+    rel = os.path.relpath(str(target_path), str(workspace))
+    if rel.startswith(".."):
+        raise WorkspaceError(f"Attachment path escapes workspace: {rel!r}")
     kind = "image" if (content_type or "").startswith("image/") else "file"
     milestone.attachments.append(
         Attachment(
             filename=safe_name,
-            path=f"assets/{milestone_id}/{safe_name}",
+            path=rel,
             kind=kind,
             description=description.strip(),
         )
@@ -317,7 +405,7 @@ def add_milestone_attachment(
 def add_task_to_milestone(workspace: Path, milestone_id: str, task_id: str) -> Milestone:
     milestone = load_milestone(workspace, milestone_id)
     if task_id and task_id not in milestone.task_ids:
-        if (workspace / "tasks" / f"{task_id}.json").exists():
+        if _safe_subpath(workspace / "tasks", f"{task_id}.json").exists():
             milestone.task_ids.append(task_id)
             save_milestone(workspace, milestone)
     return milestone
@@ -348,8 +436,8 @@ def copy_starter_files(target: Path) -> None:
     readme = target / "README.md"
     if not readme.exists():
         readme.write_text(
-            "# My Taskwright Workspace\n\n"
-            "Run `taskwright serve` from this folder to launch the local dashboard.\n",
+            "# My Taskunity Workspace\n\n"
+            "Run `taskunity serve` from this folder to launch the local dashboard.\n",
             encoding="utf-8",
         )
 
@@ -417,7 +505,7 @@ def git_sync(workspace: Path) -> dict[str, Any]:
         if status["dirty"]:
             _git(workspace, "add", "-A", "--", ".")
             commit = _git(
-                workspace, "commit", "-m", f"taskwright: sync workspace ({datetime.now():%Y-%m-%d %H:%M})"
+                workspace, "commit", "-m", f"taskunity: sync workspace ({datetime.now():%Y-%m-%d %H:%M})"
             )
             if commit.returncode != 0 and "nothing to commit" not in (commit.stdout + commit.stderr).lower():
                 result["message"] = "Commit failed: " + (commit.stderr.strip() or commit.stdout.strip())
@@ -439,3 +527,72 @@ def git_sync(workspace: Path) -> dict[str, Any]:
     except (OSError, subprocess.SubprocessError) as exc:
         result["message"] = str(exc)
     return result
+
+
+def git_lfs_available(workspace: Path) -> bool:
+    """Return True if git-lfs is installed and accessible."""
+    try:
+        result = subprocess.run(
+            ["git", "lfs", "version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def git_lfs_init(workspace: Path) -> dict[str, Any]:
+    """Initialize git-lfs in the workspace: run `git lfs install` and track assets."""
+    result: dict[str, Any] = {"ok": False, "message": ""}
+    if not git_lfs_available(workspace):
+        result["message"] = "git-lfs is not installed or not on PATH."
+        return result
+    status = git_status(workspace)
+    if not status["tracked"]:
+        result["message"] = status["message"] or "Workspace is not a git repository."
+        return result
+    try:
+        install = _git(workspace, "lfs", "install", "--local")
+        if install.returncode != 0:
+            result["message"] = "git lfs install failed: " + (install.stderr.strip() or install.stdout.strip())
+            return result
+        track = _git(workspace, "lfs", "track", "assets/**")
+        if track.returncode != 0:
+            result["message"] = "git lfs track failed: " + (track.stderr.strip() or track.stdout.strip())
+            return result
+        add = _git(workspace, "add", ".gitattributes")
+        if add.returncode != 0:
+            result["message"] = "git add .gitattributes failed"
+            return result
+        commit = _git(workspace, "commit", "-m", "chore: initialize git-lfs tracking for assets")
+        if commit.returncode != 0 and "nothing to commit" not in (commit.stdout + commit.stderr).lower():
+            result["message"] = "Commit failed: " + (commit.stderr.strip() or commit.stdout.strip())
+            return result
+        result["ok"] = True
+        result["message"] = "git-lfs initialized. Assets directory is now tracked with LFS."
+    except (OSError, subprocess.SubprocessError) as exc:
+        result["message"] = str(exc)
+    return result
+
+
+def git_lfs_status(workspace: Path) -> dict[str, Any]:
+    """Return LFS status information for the workspace."""
+    info: dict[str, Any] = {"available": False, "enabled": False, "tracking_assets": False, "message": ""}
+    info["available"] = git_lfs_available(workspace)
+    if not info["available"]:
+        return info
+    status = git_status(workspace)
+    if not status["tracked"]:
+        return info
+    try:
+        lfs_hooks = workspace / ".git" / "hooks" / "pre-push"
+        info["enabled"] = lfs_hooks.exists()
+        gitattributes = workspace / ".gitattributes"
+        if gitattributes.exists():
+            content = gitattributes.read_text(encoding="utf-8", errors="replace")
+            info["tracking_assets"] = "assets/**" in content or "assets/" in content
+    except (OSError, IOError) as exc:
+        info["message"] = str(exc)
+    return info
