@@ -163,7 +163,8 @@ def load_workspace_config(workspace: Path) -> dict[str, str]:
     config: dict[str, str] = {}
     for key, fallback in defaults.items():
         value = raw.get(key)
-        config[key] = value.strip() if isinstance(value, str) else fallback
+        stripped = value.strip() if isinstance(value, str) else ""
+        config[key] = stripped or fallback
     return config
 
 

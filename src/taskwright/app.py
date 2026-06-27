@@ -51,7 +51,6 @@ from .task_store import (
     save_milestone,
     save_task,
     upsert_project,
-    workspace_label,
 )
 
 PACKAGE_DIR = Path(__file__).parent
@@ -65,7 +64,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
     workspace = Path(workspace).resolve()
     ensure_workspace(workspace)
     initial_config = load_workspace_config(workspace)
-    app_name = initial_config["app_name"] or "Taskwright"
+    app_name = initial_config["app_name"]
 
     app = FastAPI(title=app_name)
     templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
@@ -96,14 +95,11 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
 
     def ui_config() -> dict[str, str]:
         config = load_workspace_config(workspace)
-        app_name = config["app_name"] or "Taskwright"
-        workspace_name = config["workspace_name"] or workspace_label(workspace)
-        export_title = config["export_title"] or workspace_name
         return {
-            "app_name": app_name,
-            "workspace_name": workspace_name,
+            "app_name": config["app_name"],
+            "workspace_name": config["workspace_name"],
             "workspace_description": config["workspace_description"],
-            "export_title": export_title,
+            "export_title": config["export_title"],
         }
 
     def parse_calendar_year(value: str | int | None) -> int | None:
