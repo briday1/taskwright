@@ -11,6 +11,17 @@
           <div class="project-card-head">
             <span class="swatch" style="background: {{ p.color }}"></span>
             <strong>{{ p.name }}</strong>
+            <span class="spacer"></span>
+            <button
+              type="button"
+              class="btn-link"
+              hx-get="/partials/main?view=board&project={{ p.name|urlencode }}{% if filters.date_from %}&date_from={{ filters.date_from|urlencode }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to|urlencode }}{% endif %}{% if filters.q %}&q={{ filters.q|urlencode }}{% endif %}{% if filters.sort and filters.sort != 'priority' %}&sort={{ filters.sort|urlencode }}{% endif %}{% if filters.show_closed %}&show_closed=1{% endif %}&stale_days={{ filters.stale_days }}"
+              hx-target="#app-main"
+              hx-swap="outerHTML"
+              title="Show only tasks for {{ p.name }}"
+            >
+              View tasks
+            </button>
           </div>
           {% if p.description %}<p>{{ p.description }}</p>{% else %}<p class="muted">No description</p>{% endif %}
           <details class="project-edit">

@@ -4,7 +4,7 @@ import csv
 import io
 import json
 import urllib.parse
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import markdown as markdown_lib
@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from .models import ChecklistItem, Task
+from .models import ChecklistItem, Task, TaskActivityEvent
 from .render import (
     SORTS,
     STATUSES,
@@ -146,6 +146,64 @@ def build_task_activity_entries(task: Task | None) -> list[dict[str, object]]:
             )
 
     return sorted(entries, key=lambda item: str(item.get("created_at") or ""), reverse=True)
+
+
+def _parse_event_datetime(value: str | None) -> datetime | None:
+    raw = (value or "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _normalize_event_points(points: list[dict[str, object]], fallback_iso: str) -> list[dict[str, object]]:
+    ordered: list[tuple[datetime, int, dict[str, object]]] = []
+    fallback_dt = _parse_event_datetime(fallback_iso) or datetime.now()
+    for index, point in enumerate(points):
+        dt = _parse_event_datetime(str(point.get("created_at") or "")) or fallback_dt
+        ordered.append((dt, index, point))
+
+    ordered.sort(key=lambda item: (item[0], item[1]))
+    normalized: list[dict[str, object]] = []
+    last_dt: datetime | None = None
+    for dt, _, point in ordered:
+        if last_dt is not None and dt <= last_dt:
+            dt = last_dt + timedelta(seconds=1)
+        last_dt = dt
+        normalized.append(
+            {
+                "x": dt.isoformat(timespec="seconds"),
+                "y": point.get("y", 100),
+                "label": point.get("label", ""),
+                "event_type": point.get("event_type", "update"),
+                "preview_title": point.get("preview_title", ""),
+                "preview_body": point.get("preview_body", ""),
+                "preview_path": point.get("preview_path", ""),
+                "is_image": bool(point.get("is_image")),
+            }
+        )
+    return normalized
+
+
+def _clip_progress(value: int | None, fallback: int = 0) -> int:
+    try:
+        raw = int(value if value is not None else fallback)
+    except (TypeError, ValueError):
+        raw = fallback
+    return max(0, min(100, raw))
+
+
+def _summarize_text(value: str | None, max_len: int = 46) -> str:
+    text = " ".join((value or "").strip().split())
+    if not text:
+        return ""
+    return text if len(text) <= max_len else text[: max_len - 1] + "…"
+
+
+def _preview_text(value: str | None, max_len: int = 180) -> str:
+    return _summarize_text(value, max_len)
 
 
 def create_app(workspace: str | Path = ".") -> FastAPI:
@@ -521,8 +579,8 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         request: Request,
         task_id: str,
         title: str = Form(...),
-        status: str = Form("backlog"),
-        priority: str = Form("normal"),
+        status: str = Form(""),
+        priority: str = Form(""),
         project: str = Form(""),
         summary: str = Form(""),
         description: str = Form(""),
@@ -530,7 +588,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         start_date: str = Form(""),
         due_date: str = Form(""),
         completed_date: str = Form(""),
-        percent_complete: int = Form(0),
+        percent_complete: str = Form(""),
         depends_on: str = Form(""),
         checklist_text: str = Form(""),
         f_project: list[str] = Form(default=[]),
@@ -544,8 +602,12 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
     ) -> HTMLResponse:
         task = load_task(workspace, task_id)
         task.title = title
-        task.status = status  # pydantic validation occurs at save roundtrip in raw mode; keep simple for forms
-        task.priority = priority
+        status_value = (status or "").strip().lower()
+        if status_value in set(STATUSES):
+            task.status = status_value
+        priority_value = (priority or "").strip().lower()
+        if priority_value in {"low", "normal", "high", "critical"}:
+            task.priority = priority_value
         task.project = project.strip()
         task.summary = summary
         task.description = description
@@ -553,9 +615,15 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         task.start_date = start_date or None
         task.due_date = due_date or None
         task.completed_date = completed_date or None
-        old_progress = task.percent_complete
-        task.percent_complete = max(0, min(int(percent_complete), 100))
-        log_progress_change(workspace, task, old_progress, task.percent_complete)
+        percent_raw = str(percent_complete or "").strip()
+        if percent_raw:
+            try:
+                new_progress = max(0, min(int(percent_raw), 100))
+            except ValueError:
+                new_progress = task.percent_complete
+            old_progress = task.percent_complete
+            task.percent_complete = new_progress
+            log_progress_change(workspace, task, old_progress, task.percent_complete)
         task.depends_on = [x.strip() for x in depends_on.split(",") if x.strip()]
         checklist = []
         for line in checklist_text.splitlines():
@@ -578,6 +646,89 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
                 date_from=f_from,
                 date_to=f_to,
                 q=f_q,
+                view=f_view,
+                milestone=f_milestone,
+                show_closed=parse_toggle(f_show_closed),
+                stale_days=parse_stale_days(f_stale_days),
+            ),
+        )
+
+    @app.post("/tasks/{task_id}/update", response_class=HTMLResponse)
+    async def update_task_activity_route(
+        request: Request,
+        task_id: str,
+        progress_after: str = Form(""),
+        status: str = Form(""),
+        priority: str = Form(""),
+        body: str = Form(""),
+        attachment: UploadFile | None = File(None),
+        description: str = Form(""),
+        f_view: str = Form("board"),
+        f_milestone: str = Form(""),
+        f_show_closed: str = Form(""),
+        f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
+    ) -> HTMLResponse:
+        task = load_task(workspace, task_id)
+
+        progress_raw = str(progress_after or "").strip()
+        if progress_raw:
+            try:
+                new_progress = max(0, min(int(progress_raw), 100))
+            except ValueError:
+                new_progress = task.percent_complete
+            old_progress = task.percent_complete
+            task.percent_complete = new_progress
+            log_progress_change(workspace, task, old_progress, task.percent_complete)
+
+        status_before = task.status
+        priority_before = task.priority
+        status_value = (status or "").strip().lower()
+        if status_value in set(STATUSES):
+            task.status = status_value
+        priority_value = (priority or "").strip().lower()
+        if priority_value in {"low", "normal", "high", "critical"}:
+            task.priority = priority_value
+
+        if task.status == "done" and not task.completed_date:
+            task.completed_date = date.today().isoformat()
+        elif status_before == "done" and task.status != "done":
+            task.completed_date = None
+
+        context_parts: list[str] = []
+        if status_before != task.status:
+            context_parts.append(f"Status {status_before} → {task.status}")
+        if priority_before != task.priority:
+            context_parts.append(f"Priority {priority_before} → {task.priority}")
+        if context_parts:
+            task.activity.append(
+                TaskActivityEvent(
+                    event_type="note",
+                    note_text=" · ".join(context_parts),
+                )
+            )
+
+        note_text = (body or "").strip()
+        if note_text:
+            task.activity.append(TaskActivityEvent(event_type="note", note_text=note_text))
+
+        save_task(workspace, task)
+
+        if attachment and (attachment.filename or "").strip():
+            task = add_task_activity_image(
+                workspace,
+                task_id,
+                attachment.filename or "attachment.bin",
+                await attachment.read(),
+                attachment.content_type,
+                description,
+            )
+
+        return templates.TemplateResponse(
+            request,
+            "partials/task_panel.html",
+            context(
+                request,
+                task,
                 view=f_view,
                 milestone=f_milestone,
                 show_closed=parse_toggle(f_show_closed),
@@ -751,27 +902,148 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
     @app.get("/tasks/{task_id}/burndown.json")
     def task_burndown_json(task_id: str) -> Response:
         task = load_task(workspace, task_id)
-        points: list[dict[str, object]] = []
-        progress_events = [event for event in task.activity if event.event_type == "progress_update"]
-        if not progress_events:
-            points.append(
+        fallback_iso = (
+            task.extra.get("created_at")
+            or task.start_date
+            or task.due_date
+            or task.completed_date
+            or datetime.now().isoformat(timespec="seconds")
+        )
+
+        progress_updates = [event for event in task.activity if event.event_type == "progress_update"]
+        progress_updates.sort(key=lambda item: item.created_at)
+        first_before = progress_updates[0].progress_before if progress_updates else None
+        current_progress = _clip_progress(first_before, task.percent_complete)
+
+        raw_events: list[dict[str, object]] = []
+        for note in task.notes:
+            summary = _summarize_text(note.body)
+            label = "Note added"
+            if summary:
+                label = f"Note: {summary}"
+            raw_events.append(
                 {
-                    "x": task.extra.get("created_at", ""),
-                    "y": 100 - task.percent_complete,
-                    "label": f"Current: {task.percent_complete}%",
+                    "created_at": note.created_at,
+                    "event_type": "note",
+                    "label": label,
+                    "preview_title": "Note",
+                    "preview_body": _preview_text(note.body),
+                    "preview_path": "",
+                    "is_image": False,
+                    "progress_before": None,
+                    "progress_after": None,
                 }
             )
-        else:
-            for event in sorted(progress_events, key=lambda item: item.created_at):
-                points.append(
+        for attachment in task.attachments:
+            filename = (attachment.filename or "Attachment").strip() or "Attachment"
+            raw_events.append(
+                {
+                    "created_at": attachment.uploaded_at,
+                    "event_type": "attachment",
+                    "label": f"Attachment: {filename}",
+                    "preview_title": filename,
+                    "preview_body": _preview_text(attachment.description),
+                    "preview_path": attachment.path,
+                    "is_image": attachment.kind == "image",
+                    "progress_before": None,
+                    "progress_after": None,
+                }
+            )
+        for event in task.activity:
+            if event.event_type == "progress_update":
+                before = _clip_progress(event.progress_before, current_progress)
+                after = _clip_progress(event.progress_after, before)
+                raw_events.append(
                     {
-                        "x": event.created_at,
-                        "y": 100 - (event.progress_after or 0),
-                        "label": f"{event.progress_before}% → {event.progress_after}%",
+                        "created_at": event.created_at,
+                        "event_type": "progress_update",
+                        "label": f"Progress {before}% → {after}%",
+                        "preview_title": "Progress update",
+                        "preview_body": "",
+                        "preview_path": "",
+                        "is_image": False,
+                        "progress_before": before,
+                        "progress_after": after,
                     }
                 )
+            elif event.event_type == "image":
+                filename = (event.image_filename or "Attachment").strip() or "Attachment"
+                raw_events.append(
+                    {
+                        "created_at": event.created_at,
+                        "event_type": "attachment",
+                        "label": f"Attachment: {filename}",
+                        "preview_title": filename,
+                        "preview_body": _preview_text(event.note_text),
+                        "preview_path": event.image_path or "",
+                        "is_image": True,
+                        "progress_before": None,
+                        "progress_after": None,
+                    }
+                )
+            else:
+                summary = _summarize_text(event.note_text)
+                label = "Note added"
+                if summary:
+                    label = f"Note: {summary}"
+                raw_events.append(
+                    {
+                        "created_at": event.created_at,
+                        "event_type": "note",
+                        "label": label,
+                        "preview_title": "Note",
+                        "preview_body": _preview_text(event.note_text),
+                        "preview_path": "",
+                        "is_image": False,
+                        "progress_before": None,
+                        "progress_after": None,
+                    }
+                )
+
+        raw_events.sort(
+            key=lambda item: (
+                _parse_event_datetime(str(item.get("created_at") or "")) or datetime.max,
+                str(item.get("event_type") or ""),
+            )
+        )
+
+        points: list[dict[str, object]] = []
+        for event in raw_events:
+            if event.get("event_type") == "progress_update":
+                current_progress = _clip_progress(
+                    event.get("progress_after") if isinstance(event.get("progress_after"), int) else None,
+                    current_progress,
+                )
+            points.append(
+                {
+                    "created_at": str(event.get("created_at") or fallback_iso),
+                    "y": 100 - current_progress,
+                    "label": str(event.get("label") or "Update"),
+                    "event_type": str(event.get("event_type") or "update"),
+                    "preview_title": str(event.get("preview_title") or ""),
+                    "preview_body": str(event.get("preview_body") or ""),
+                    "preview_path": str(event.get("preview_path") or ""),
+                    "is_image": bool(event.get("is_image")),
+                }
+            )
+
+        if not points:
+            points.append(
+                {
+                    "created_at": fallback_iso,
+                    "y": 100 - _clip_progress(task.percent_complete),
+                    "label": f"Current progress: {_clip_progress(task.percent_complete)}%",
+                    "event_type": "snapshot",
+                    "preview_title": "Current snapshot",
+                    "preview_body": "",
+                    "preview_path": "",
+                    "is_image": False,
+                }
+            )
+
+        normalized_points = _normalize_event_points(points, fallback_iso)
         return Response(
-            json.dumps({"task_id": task_id, "title": task.title, "points": points}),
+            json.dumps({"task_id": task_id, "title": task.title, "points": normalized_points}),
             media_type="application/json",
         )
 
@@ -913,42 +1185,196 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         tasks_by_id = {task.id: task for task in all_tasks}
         milestone_tasks = [tasks_by_id[task_id] for task_id in milestone.task_ids if task_id in tasks_by_id]
 
-        all_events: list[tuple[str, Task, object]] = []
+        fallback_iso = (
+            milestone.start_date
+            or milestone.target_date
+            or milestone.extra.get("created_at")
+            or datetime.now().isoformat(timespec="seconds")
+        )
+
+        task_progress: dict[str, int] = {}
         for task in milestone_tasks:
+            updates = [event for event in task.activity if event.event_type == "progress_update"]
+            updates.sort(key=lambda item: item.created_at)
+            baseline = updates[0].progress_before if updates else task.percent_complete
+            task_progress[task.id] = _clip_progress(baseline, task.percent_complete)
+
+        raw_events: list[dict[str, object]] = []
+
+        for note in milestone.notes:
+            summary = _summarize_text(note.body)
+            label = "Milestone note"
+            if summary:
+                label = f"Milestone note: {summary}"
+            raw_events.append(
+                {
+                    "created_at": note.created_at,
+                    "event_type": "note",
+                    "task_id": None,
+                    "label": label,
+                    "preview_title": "Milestone note",
+                    "preview_body": _preview_text(note.body),
+                    "preview_path": "",
+                    "is_image": False,
+                    "progress_after": None,
+                }
+            )
+        for attachment in milestone.attachments:
+            filename = (attachment.filename or "Attachment").strip() or "Attachment"
+            raw_events.append(
+                {
+                    "created_at": attachment.uploaded_at,
+                    "event_type": "attachment",
+                    "task_id": None,
+                    "label": f"Milestone attachment: {filename}",
+                    "preview_title": filename,
+                    "preview_body": _preview_text(attachment.description),
+                    "preview_path": attachment.path,
+                    "is_image": attachment.kind == "image",
+                    "progress_after": None,
+                }
+            )
+
+        for task in milestone_tasks:
+            prefix = task.title.strip() or task.id
+            for note in task.notes:
+                summary = _summarize_text(note.body)
+                label = f"{prefix}: note"
+                if summary:
+                    label = f"{prefix}: {summary}"
+                raw_events.append(
+                    {
+                        "created_at": note.created_at,
+                        "event_type": "note",
+                        "task_id": task.id,
+                        "label": label,
+                        "preview_title": f"{prefix} note",
+                        "preview_body": _preview_text(note.body),
+                        "preview_path": "",
+                        "is_image": False,
+                        "progress_after": None,
+                    }
+                )
+            for attachment in task.attachments:
+                filename = (attachment.filename or "Attachment").strip() or "Attachment"
+                raw_events.append(
+                    {
+                        "created_at": attachment.uploaded_at,
+                        "event_type": "attachment",
+                        "task_id": task.id,
+                        "label": f"{prefix}: attachment {filename}",
+                        "preview_title": filename,
+                        "preview_body": _preview_text(attachment.description),
+                        "preview_path": attachment.path,
+                        "is_image": attachment.kind == "image",
+                        "progress_after": None,
+                    }
+                )
             for event in task.activity:
                 if event.event_type == "progress_update":
-                    all_events.append((event.created_at, task, event))
-        all_events.sort(key=lambda item: item[0])
+                    before = _clip_progress(event.progress_before, task_progress.get(task.id, task.percent_complete))
+                    after = _clip_progress(event.progress_after, before)
+                    raw_events.append(
+                        {
+                            "created_at": event.created_at,
+                            "event_type": "progress_update",
+                            "task_id": task.id,
+                            "label": f"{prefix}: {before}% → {after}%",
+                            "preview_title": f"{prefix} progress",
+                            "preview_body": "",
+                            "preview_path": "",
+                            "is_image": False,
+                            "progress_after": after,
+                        }
+                    )
+                elif event.event_type == "image":
+                    filename = (event.image_filename or "Attachment").strip() or "Attachment"
+                    raw_events.append(
+                        {
+                            "created_at": event.created_at,
+                            "event_type": "attachment",
+                            "task_id": task.id,
+                            "label": f"{prefix}: attachment {filename}",
+                            "preview_title": filename,
+                            "preview_body": _preview_text(event.note_text),
+                            "preview_path": event.image_path or "",
+                            "is_image": True,
+                            "progress_after": None,
+                        }
+                    )
+                else:
+                    summary = _summarize_text(event.note_text)
+                    label = f"{prefix}: note"
+                    if summary:
+                        label = f"{prefix}: {summary}"
+                    raw_events.append(
+                        {
+                            "created_at": event.created_at,
+                            "event_type": "note",
+                            "task_id": task.id,
+                            "label": label,
+                            "preview_title": f"{prefix} note",
+                            "preview_body": _preview_text(event.note_text),
+                            "preview_path": "",
+                            "is_image": False,
+                            "progress_after": None,
+                        }
+                    )
 
-        task_progress = {task.id: 0 for task in milestone_tasks}
+        raw_events.sort(
+            key=lambda item: (
+                _parse_event_datetime(str(item.get("created_at") or "")) or datetime.max,
+                str(item.get("event_type") or ""),
+                str(item.get("task_id") or ""),
+            )
+        )
+
+        def avg_remaining() -> int:
+            if not task_progress:
+                return 100
+            return round(sum(100 - progress for progress in task_progress.values()) / len(task_progress))
 
         points: list[dict[str, object]] = []
-        if not all_events:
-            if milestone_tasks:
-                avg_remaining = round(
-                    sum(100 - task.percent_complete for task in milestone_tasks) / len(milestone_tasks)
-                )
-                points.append(
-                    {
-                        "x": milestone.start_date or "",
-                        "y": avg_remaining,
-                        "label": f"{len(milestone_tasks)} tasks, avg remaining: {avg_remaining}%",
-                    }
-                )
-        else:
-            for created_at, task, event in all_events:
-                task_progress[task.id] = event.progress_after
-                avg_remaining = round(sum(100 - progress for progress in task_progress.values()) / len(task_progress))
-                points.append(
-                    {
-                        "x": created_at,
-                        "y": avg_remaining,
-                        "label": f"{task.title}: {event.progress_before}% → {event.progress_after}%",
-                    }
-                )
+        for event in raw_events:
+            if event.get("event_type") == "progress_update":
+                task_id = str(event.get("task_id") or "")
+                if task_id in task_progress:
+                    task_progress[task_id] = _clip_progress(
+                        event.get("progress_after") if isinstance(event.get("progress_after"), int) else None,
+                        task_progress[task_id],
+                    )
+            points.append(
+                {
+                    "created_at": str(event.get("created_at") or fallback_iso),
+                    "y": avg_remaining(),
+                    "label": str(event.get("label") or "Update"),
+                    "event_type": str(event.get("event_type") or "update"),
+                    "preview_title": str(event.get("preview_title") or ""),
+                    "preview_body": str(event.get("preview_body") or ""),
+                    "preview_path": str(event.get("preview_path") or ""),
+                    "is_image": bool(event.get("is_image")),
+                }
+            )
+
+        if not points and milestone_tasks:
+            remaining = avg_remaining()
+            points.append(
+                {
+                    "created_at": fallback_iso,
+                    "y": remaining,
+                    "label": f"Current average remaining: {remaining}%",
+                    "event_type": "snapshot",
+                    "preview_title": "Current snapshot",
+                    "preview_body": "",
+                    "preview_path": "",
+                    "is_image": False,
+                }
+            )
+
+        normalized_points = _normalize_event_points(points, fallback_iso)
 
         return Response(
-            json.dumps({"milestone_id": milestone_id, "title": milestone.title, "points": points}),
+            json.dumps({"milestone_id": milestone_id, "title": milestone.title, "points": normalized_points}),
             media_type="application/json",
         )
 
