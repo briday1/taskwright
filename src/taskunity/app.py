@@ -320,6 +320,11 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         all_tasks = load_all_tasks(workspace)
         milestones = load_all_milestones(workspace)
         tasks_by_id = {t.id: t for t in all_tasks}
+        panel_task_id = (selected_task.id if selected_task else (request.query_params.get("panel_task") or "").strip())
+        if selected_task is None and panel_task_id:
+            selected_task = tasks_by_id.get(panel_task_id)
+            if selected_task is None:
+                panel_task_id = ""
         milestone_rollups = {m.id: milestone_rollup(m, tasks_by_id) for m in milestones}
 
         selected_milestone = None
@@ -443,6 +448,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
                 "calendar_next_query": build_query(projects, date_from, date_to, q, "calendar", sort, milestone, show_closed, stale_days, next_month, next_year),
                 "calendar_year_prev_query": build_query(projects, date_from, date_to, q, "calendar", sort, milestone, show_closed, stale_days, year_prev_month, year_prev_year),
                 "calendar_year_next_query": build_query(projects, date_from, date_to, q, "calendar", sort, milestone, show_closed, stale_days, year_next_month, year_next_year),
+                "panel_task": panel_task_id,
                 "show_closed": show_closed,
                 "hidden_closed_count": hidden_closed_count,
                 "toggle_closed_query": build_query(projects, date_from, date_to, q, view, sort, milestone, not show_closed, stale_days, focus_month, focus_year),

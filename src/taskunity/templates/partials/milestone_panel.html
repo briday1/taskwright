@@ -4,7 +4,9 @@
       <span class="ms-status {{ selected_milestone.status }}">{{ selected_milestone.status }}</span>
       <h2>{{ selected_milestone.title }}</h2>
     </div>
-    <button class="btn-link" hx-get="/partials/main?milestone={{ selected_milestone.id }}&view={{ filters.view if filters.view != 'milestones' else 'board' }}{% if filters.show_closed %}&show_closed=1{% endif %}&stale_days={{ filters.stale_days }}" hx-target="#app-main" hx-swap="outerHTML" title="Filter the board to this milestone">Filter tasks</button>
+    <div class="task-panel-title-row">
+      <button type="button" class="btn-link task-collapse-btn" data-panel-collapse title="Collapse details" aria-label="Collapse details">×</button>
+    </div>
   </div>
 
   <form hx-post="/milestones/{{ selected_milestone.id }}/save" hx-target="#app-main" hx-swap="outerHTML" class="task-form">
