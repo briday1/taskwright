@@ -29,3 +29,4 @@ src/taskwright/templates/partials/task_panel.html
 src/taskwright/templates/partials/timeline.html
 tests/test_git_workspace_scope.py
 tests/test_render_jsonantt.py
+tests/test_workspace_config.py

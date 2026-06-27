@@ -21,6 +21,30 @@ Switch views from the toolbar:
   {doc}`milestones`.
 - **Projects** — manage projects and their colors.
 
+### Task List
+
+![Task List view](_static/screenshots/task-list.png)
+
+### Task Board
+
+![Task Board view](_static/screenshots/task-board.png)
+
+### Gantt Timeline
+
+![Gantt timeline view](_static/screenshots/gantt.png)
+
+### Calendar
+
+![Calendar view](_static/screenshots/calendar.png)
+
+### Milestones
+
+![Milestones view](_static/screenshots/milestones.png)
+
+### Projects
+
+![Projects view](_static/screenshots/projects.png)
+
 ## The task panel
 
 Click any task (a list row, board card, timeline bar, or calendar entry) to open the side panel.
@@ -37,6 +61,8 @@ From there you can:
 
 Press **Save Task** to write changes back to the task's JSON file. **Complete** / **Reopen** toggles
 the done state.
+
+![Task detail panel](_static/screenshots/task-panel.png)
 
 ## Filtering, search, and sorting
 
