@@ -39,6 +39,24 @@ attachments, and an editable task side panel.
 > Documentation: a full guide is in the [`docs/`](docs/) folder and is set up to build on
 > [Read the Docs](https://readthedocs.org/) (Sphinx + Markdown).
 
+## Screenshots
+
+| Task List | Task Board |
+|-----------|-----------|
+| ![Task List](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/task-list.png) | ![Task Board](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/task-board.png) |
+
+| Gantt Timeline | Calendar |
+|----------------|----------|
+| ![Gantt](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/gantt.png) | ![Calendar](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/calendar.png) |
+
+| Milestones | Projects |
+|------------|----------|
+| ![Milestones](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/milestones.png) | ![Projects](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/projects.png) |
+
+| Task Detail Panel |
+|-------------------|
+| ![Task Panel](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/task-panel.png) |
+
 ## Why Taskwright
 
 - **File-backed source of truth.** Each task is a single JSON file you can read, diff, and commit
