@@ -15,7 +15,6 @@
     </div>
     <div class="mb-actions">
       <button class="btn-link" hx-get="/milestones/{{ selected_milestone.id }}/panel?view={{ filters.view }}{% if filters.show_closed %}&show_closed=1{% endif %}&stale_days={{ filters.stale_days }}" hx-target="#task-panel" hx-swap="innerHTML">Open details</button>
-      <button class="pill clear" hx-get="/partials/main?view={{ filters.view }}{% if filters.show_closed %}&show_closed=1{% endif %}&stale_days={{ filters.stale_days }}" hx-target="#app-main" hx-swap="outerHTML">Clear milestone</button>
     </div>
   </div>
   <div class="mb-rollup">
@@ -34,7 +33,7 @@
 
   <section class="mb-burndown">
     <h3>Milestone Burndown Chart</h3>
-    <canvas id="milestone-burndown-{{ selected_milestone.id }}" class="burndown-canvas burndown-canvas-large" height="250"></canvas>
+    <canvas id="milestone-burndown-{{ selected_milestone.id }}" class="burndown-canvas burndown-canvas-large" height="160"></canvas>
     <script>
       (function () {
         var canvas = document.getElementById('milestone-burndown-{{ selected_milestone.id }}');
@@ -166,6 +165,8 @@
               },
               options: {
                 parsing: false,
+                responsive: true,
+                maintainAspectRatio: false,
                 interaction: { mode: 'nearest', intersect: true },
                 onClick: function (evt, active) {
                   if (active && active.length) {
@@ -191,8 +192,17 @@
                   }
                 },
                 scales: {
-                  x: { type: 'time', time: { unit: 'day', displayFormats: { day: 'MMM d' }, tooltipFormat: 'MMM d, yyyy' } },
-                  y: { beginAtZero: true, max: 100, title: { display: true, text: 'Remaining %' } }
+                  x: {
+                    type: 'time',
+                    time: { unit: 'day', displayFormats: { day: 'MMM d' }, tooltipFormat: 'MMM d, yyyy' },
+                    ticks: { autoSkip: true, maxTicksLimit: 7, maxRotation: 0, font: { size: 11 } }
+                  },
+                  y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: { font: { size: 11 } },
+                    title: { display: true, text: 'Remaining %', font: { size: 11 } }
+                  }
                 }
               }
             });

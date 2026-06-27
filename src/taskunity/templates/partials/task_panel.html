@@ -372,6 +372,8 @@
               },
               options: {
                 parsing: false,
+                responsive: true,
+                maintainAspectRatio: true,
                 interaction: { mode: 'nearest', intersect: true },
                 onClick: function (evt, active) {
                   if (active && active.length) {
@@ -397,8 +399,17 @@
                   }
                 },
                 scales: {
-                  x: { type: 'time', time: { unit: 'day', displayFormats: { day: 'MMM d' }, tooltipFormat: 'MMM d, yyyy' } },
-                  y: { beginAtZero: true, max: 100, title: { display: true, text: 'Remaining %' } }
+                  x: {
+                    type: 'time',
+                    time: { unit: 'day', displayFormats: { day: 'MMM d' }, tooltipFormat: 'MMM d, yyyy' },
+                    ticks: { autoSkip: true, maxTicksLimit: 5, maxRotation: 0, font: { size: 11 } }
+                  },
+                  y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: { font: { size: 11 } },
+                    title: { display: true, text: 'Remaining %', font: { size: 11 } }
+                  }
                 }
               }
             });

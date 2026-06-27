@@ -13,8 +13,8 @@
           <div class="cal-day{% if not day.in_month %} out{% endif %}{% if not day.in_range %} muted-day{% endif %}{% if day.today %} today{% endif %}">
             <span class="cal-date">{{ day.date.day }}</span>
             {% for task in day.tasks %}
-              <button class="cal-task {{ task.status }}"
-                hx-get="/tasks/{{ task.id }}/panel?view={{ filters.view }}{% if filters.query %}&{{ filters.query }}{% endif %}" hx-target="#task-panel" hx-swap="innerHTML"
+              <button type="button" class="cal-task {{ task.status }}"
+                hx-get="/partials/main?view={{ filters.view }}{% if filters.query %}&{{ filters.query }}{% endif %}&panel_task={{ task.id }}" hx-target="#app-main" hx-swap="outerHTML"
                 title="{{ task.title }}{% if task.project %} · {{ task.project }}{% endif %}">{{ task.title }}</button>
             {% endfor %}
           </div>

@@ -3,7 +3,7 @@
   {% if model.timeline.rows %}
     <div class="timeline">
       {% for item in model.timeline.rows %}
-        <button class="timeline-row" hx-get="/tasks/{{ item.task.id }}/panel?view={{ filters.view }}{% if filters.query %}&{{ filters.query }}{% endif %}" hx-target="#task-panel" hx-swap="innerHTML">
+        <button type="button" class="timeline-row" hx-get="/partials/main?view={{ filters.view }}{% if filters.query %}&{{ filters.query }}{% endif %}&panel_task={{ item.task.id }}" hx-target="#app-main" hx-swap="outerHTML">
           <span class="timeline-title">
             {{ item.task.title }}
             {% if item.task.project %}<small class="project" style="background: {{ project_colors.get(item.task.project, '#2e6fd8') }}22; color: {{ project_colors.get(item.task.project, '#2e6fd8') }}">{{ item.task.project }}</small>{% endif %}

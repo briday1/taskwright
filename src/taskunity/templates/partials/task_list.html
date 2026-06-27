@@ -30,8 +30,8 @@
       <tbody>
         {% for task in model.tasks %}
           <tr class="task-row {{ task.status }}"
-            hx-get="/tasks/{{ task.id }}/panel?view={{ filters.view }}{% if filters.query %}&{{ filters.query }}{% endif %}"
-            hx-target="#task-panel" hx-swap="innerHTML">
+            hx-get="/partials/main?view={{ filters.view }}{% if filters.query %}&{{ filters.query }}{% endif %}&panel_task={{ task.id }}"
+            hx-target="#app-main" hx-swap="outerHTML">
             <td>{{ task.title }}</td>
             <td>{% if task.project %}<span class="project" style="background: {{ project_colors.get(task.project, '#2e6fd8') }}22; color: {{ project_colors.get(task.project, '#2e6fd8') }}">{{ task.project }}</span>{% endif %}</td>
             <td><span class="status-pill {{ task.status }}">{{ task.status }}</span></td>

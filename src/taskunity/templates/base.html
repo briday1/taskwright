@@ -339,6 +339,12 @@
         if (!main) return;
         main.classList.remove('panel-collapsed');
       }
+      function panelHasContent(panel) {
+        if (!panel) return false;
+        return !!panel.children.length && (panel.textContent || '').trim().length > 0;
+      }
+      var lastTaskPanelUrl = '';
+      var lastTaskPanelRequestedAt = 0;
       document.addEventListener('click', function (e) {
         var btn = e.target.closest('[data-panel-collapse]');
         if (!btn) return;
@@ -348,6 +354,18 @@
         var panelTrigger = e.target.closest('[hx-target="#task-panel"]');
         if (!panelTrigger) return;
         expandTaskPanel();
+        var panelUrl = panelTrigger.getAttribute('hx-get') || '';
+        if (/\/tasks\/[^/]+\/panel(?:\?|$)/.test(panelUrl)) {
+          lastTaskPanelUrl = panelUrl;
+          lastTaskPanelRequestedAt = Date.now();
+          window.setTimeout(function () {
+            var panel = document.getElementById('task-panel');
+            if (!panel) return;
+            if (panelHasContent(panel)) return;
+            if (!window.htmx || typeof window.htmx.ajax !== 'function') return;
+            window.htmx.ajax('GET', panelUrl, { target: '#task-panel', swap: 'innerHTML' });
+          }, 220);
+        }
       });
       document.addEventListener('pointerdown', function (e) {
         var panelTrigger = e.target.closest('[hx-target="#task-panel"]');
@@ -357,24 +375,61 @@
       document.body.addEventListener('htmx:beforeRequest', function (e) {
         var trigger = e && e.detail ? e.detail.elt : null;
         if (!trigger) return;
-        var panelTarget = trigger.getAttribute && trigger.getAttribute('hx-target');
-        if (panelTarget === '#task-panel' || trigger.closest('[hx-target="#task-panel"]')) {
+        var source = trigger.closest ? trigger.closest('[hx-target="#task-panel"]') : null;
+        var panelTarget = (source && source.getAttribute ? source.getAttribute('hx-target') : null) || (trigger.getAttribute && trigger.getAttribute('hx-target'));
+        if (panelTarget === '#task-panel' || source) {
           expandTaskPanel();
+        }
+        if (panelTarget === '#task-panel') {
+          var panelUrl = ((source && source.getAttribute && source.getAttribute('hx-get')) || (trigger.getAttribute && trigger.getAttribute('hx-get')) || '');
+          if (/\/tasks\/[^/]+\/panel(?:\?|$)/.test(panelUrl)) {
+            lastTaskPanelUrl = panelUrl;
+            lastTaskPanelRequestedAt = Date.now();
+          }
         }
       });
       document.body.addEventListener('htmx:beforeSwap', function (e) {
         var target = e && e.detail ? e.detail.target : null;
         if (!target) return;
         var panel = target.id === 'task-panel' ? target : target.closest ? target.closest('#task-panel') : null;
-        if (panel) expandTaskPanel();
+        if (!panel) return;
+        expandTaskPanel();
+        var xhr = e.detail && e.detail.xhr ? e.detail.xhr : null;
+        var incoming = xhr && typeof xhr.responseText === 'string' ? xhr.responseText.trim() : null;
+        if (incoming === '') {
+          e.detail.shouldSwap = false;
+          if (lastTaskPanelUrl && window.htmx && typeof window.htmx.ajax === 'function') {
+            window.setTimeout(function () {
+              window.htmx.ajax('GET', lastTaskPanelUrl, { target: '#task-panel', swap: 'innerHTML' });
+            }, 40);
+          }
+        }
       });
       document.body.addEventListener('htmx:afterSwap', function (e) {
         var target = e && e.detail ? e.detail.target : null;
         if (!target) return;
         var panel = target.id === 'task-panel' ? target : target.closest ? target.closest('#task-panel') : null;
         if (!panel) return;
-        var hasContent = !!panel.children.length && (panel.textContent || '').trim().length > 0;
-        if (hasContent) expandTaskPanel();
+        var hasContent = panelHasContent(panel);
+        if (hasContent) {
+          expandTaskPanel();
+          lastTaskPanelRequestedAt = Date.now();
+        }
+      });
+      document.body.addEventListener('htmx:afterSwap', function (e) {
+        var target = e && e.detail ? e.detail.target : null;
+        if (!target || target.id !== 'app-main') return;
+        if (!lastTaskPanelUrl) return;
+        var panel = document.getElementById('task-panel');
+        if (!panel) return;
+        var recentlyRequested = (Date.now() - lastTaskPanelRequestedAt) < 4500;
+        if (!recentlyRequested) return;
+        var hasContent = panelHasContent(panel);
+        if (hasContent) return;
+        expandTaskPanel();
+        if (window.htmx && typeof window.htmx.ajax === 'function') {
+          window.htmx.ajax('GET', lastTaskPanelUrl, { target: '#task-panel', swap: 'innerHTML' });
+        }
       });
 
       function paneBounds() {
@@ -382,6 +437,42 @@
         var min = 300;
         if (max < min) max = min;
         return { min: min, max: max };
+      }
+      function resizeTaskunityCharts() {
+        if (!window.taskunityCharts) return;
+        Object.keys(window.taskunityCharts).forEach(function (key) {
+          var chart = window.taskunityCharts[key];
+          if (!chart || typeof chart.resize !== 'function') return;
+          chart.resize();
+          if (typeof chart.update === 'function') chart.update('none');
+        });
+      }
+      var chartResizeRaf = 0;
+      function scheduleChartResize() {
+        if (chartResizeRaf) cancelAnimationFrame(chartResizeRaf);
+        chartResizeRaf = requestAnimationFrame(function () {
+          chartResizeRaf = 0;
+          resizeTaskunityCharts();
+        });
+      }
+      var chartResizeObserver = null;
+      function initChartResizeObserver(root) {
+        if (typeof ResizeObserver === 'undefined') return;
+        if (!chartResizeObserver) {
+          chartResizeObserver = new ResizeObserver(function () {
+            scheduleChartResize();
+          });
+        }
+        var scope = root || document;
+        var targets = [
+          scope.getElementById ? scope.getElementById('app-main') : document.getElementById('app-main'),
+          scope.getElementById ? scope.getElementById('task-panel') : document.getElementById('task-panel')
+        ];
+        targets.forEach(function (el) {
+          if (!el || el.dataset.chartResizeObserved === '1') return;
+          chartResizeObserver.observe(el);
+          el.dataset.chartResizeObserved = '1';
+        });
       }
       function setPaneWidth(layout, px) {
         if (!layout) return;
@@ -404,6 +495,7 @@
           setPaneWidth(layout, px);
           var current = parseInt(getComputedStyle(layout).getPropertyValue('--side-pane-width'), 10);
           if (!Number.isNaN(current)) localStorage.setItem(PANE_KEY, String(current));
+          scheduleChartResize();
         }
         resizer.addEventListener('mousedown', function (e) {
           dragging = true;
@@ -418,10 +510,12 @@
           if (!dragging) return;
           dragging = false;
           layout.classList.remove('resizing');
+          scheduleChartResize();
         });
         resizer.addEventListener('dblclick', function () {
           localStorage.removeItem(PANE_KEY);
           layout.style.removeProperty('--side-pane-width');
+          scheduleChartResize();
         });
         resizer.addEventListener('keydown', function (e) {
           if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -436,11 +530,15 @@
         window.addEventListener('resize', function () {
           var current = parseInt(getComputedStyle(layout).getPropertyValue('--side-pane-width'), 10);
           if (!Number.isNaN(current)) setPaneWidth(layout, current);
+          scheduleChartResize();
         });
       }
       initPaneResizer(document);
+      initChartResizeObserver(document);
       document.body.addEventListener('htmx:afterSwap', function () {
         initPaneResizer(document);
+        initChartResizeObserver(document);
+        scheduleChartResize();
       });
     })();
   </script>
