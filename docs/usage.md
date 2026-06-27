@@ -44,7 +44,6 @@ Switch views from the toolbar:
 Click **Details** on any milestone to open the milestone panel, which includes a cumulative
 burndown chart aggregating all tasks' progress over time.
 
-![Milestone burndown chart](_static/screenshots/milestone-burndown.png)
 
 ### Projects
 
@@ -75,7 +74,6 @@ the done state.
 The panel scrolls down to reveal a stepped burndown chart — each `progress_update` event is plotted
 as a step, and hovering shows the event label ("0% → 40%").
 
-![Task burndown chart](_static/screenshots/task-burndown.png)
 
 ## Filtering, search, and sorting
 
