@@ -174,7 +174,8 @@
           .then(function (response) { return response.json(); })
           .then(function (payload) {
             var points = (payload.points || []).map(function (point) {
-              return { x: point.x || new Date().toISOString(), y: point.y, label: point.label };
+              // Convert ISO string to ms timestamp so Chart.js time scale parses it reliably
+              return { x: new Date(point.x || new Date()).getTime(), y: point.y, label: point.label };
             });
             window.taskunityCharts[canvas.id] = new Chart(canvas, {
               type: 'line',
@@ -185,7 +186,8 @@
                   borderColor: '#2f9e5f',
                   backgroundColor: 'rgba(47, 158, 95, 0.12)',
                   fill: true,
-                  tension: 0.25
+                  tension: 0.25,
+                  stepped: 'before'
                 }]
               },
               options: {
@@ -201,7 +203,7 @@
                   }
                 },
                 scales: {
-                  x: { type: 'time', time: { tooltipFormat: 'PPpp' } },
+                  x: { type: 'time', time: { unit: 'day', displayFormats: { day: 'MMM d' }, tooltipFormat: 'MMM d, yyyy' } },
                   y: { beginAtZero: true, max: 100, title: { display: true, text: 'Remaining %' } }
                 }
               }

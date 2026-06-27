@@ -41,6 +41,11 @@ Switch views from the toolbar:
 
 ![Milestones view](_static/screenshots/milestones.png)
 
+Click **Details** on any milestone to open the milestone panel, which includes a cumulative
+burndown chart aggregating all tasks' progress over time.
+
+![Milestone burndown chart](_static/screenshots/milestone-burndown.png)
+
 ### Projects
 
 ![Projects view](_static/screenshots/projects.png)
@@ -63,7 +68,14 @@ From there you can:
 Press **Save Task** to write changes back to the task's JSON file. **Complete** / **Reopen** toggles
 the done state.
 
-![Task detail panel](_static/screenshots/task-panel.png)
+![Task activity log](_static/screenshots/task-panel.png)
+
+### Task Burndown Chart
+
+The panel scrolls down to reveal a stepped burndown chart — each `progress_update` event is plotted
+as a step, and hovering shows the event label ("0% → 40%").
+
+![Task burndown chart](_static/screenshots/task-burndown.png)
 
 ## Filtering, search, and sorting
 

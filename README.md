@@ -22,9 +22,13 @@ burndown charts, and an editable task side panel.
 |------------|----------|
 | ![Milestones](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/milestones.png) | ![Projects](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/projects.png) |
 
-| Task Activity Log & Burndown | Settings (Theme) |
-|------------------------------|------------------|
+| Task Activity Log | Settings (Theme) |
+|-------------------|------------------|
 | ![Task Panel](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/task-panel.png) | ![Settings Popup](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/settings-popup.png) |
+
+| Task Burndown Chart | Milestone Burndown Chart |
+|---------------------|--------------------------|
+| ![Task Burndown](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/task-burndown.png) | ![Milestone Burndown](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/milestone-burndown.png) |
 
 ## Why Taskunity
 
