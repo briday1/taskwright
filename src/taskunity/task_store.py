@@ -9,9 +9,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from .models import Attachment, Milestone, Note, Project, Task
+from .models import Attachment, Milestone, Note, Project, Task, TaskActivityEvent
 
-DEFAULT_WORKSPACE_APP_NAME = "Taskwright"
+DEFAULT_WORKSPACE_APP_NAME = "Taskunity"
 DEFAULT_WORKSPACE_DESCRIPTION = "Local file-backed workspace/task tracker"
 
 
@@ -234,6 +234,52 @@ def add_attachment(workspace: Path, task_id: str, filename: str, content: bytes,
     return task
 
 
+def add_task_activity_note(workspace: Path, task_id: str, body: str) -> Task:
+    task = load_task(workspace, task_id)
+    if body.strip():
+        task.activity.append(TaskActivityEvent(event_type="note", note_text=body.strip()))
+        save_task(workspace, task)
+    return task
+
+
+def add_task_activity_image(
+    workspace: Path,
+    task_id: str,
+    filename: str,
+    content: bytes,
+    content_type: str | None = None,
+    description: str = "",
+) -> Task:
+    task = load_task(workspace, task_id)
+    safe_name = Path(filename).name
+    target_dir = workspace / "assets" / task_id
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target_path = target_dir / safe_name
+    target_path.write_bytes(content)
+    description_text = description.strip() or None
+    task.activity.append(
+        TaskActivityEvent(
+            event_type="image",
+            image_path=f"assets/{task_id}/{safe_name}",
+            image_filename=safe_name,
+            note_text=description_text,
+        )
+    )
+    save_task(workspace, task)
+    return task
+
+
+def log_progress_change(workspace_path: Path, task: Task, old_progress: int, new_progress: int) -> None:
+    if old_progress != new_progress:
+        task.activity.append(
+            TaskActivityEvent(
+                event_type="progress_update",
+                progress_before=old_progress,
+                progress_after=new_progress,
+            )
+        )
+
+
 # --- Milestones -------------------------------------------------------------
 
 
@@ -348,8 +394,8 @@ def copy_starter_files(target: Path) -> None:
     readme = target / "README.md"
     if not readme.exists():
         readme.write_text(
-            "# My Taskwright Workspace\n\n"
-            "Run `taskwright serve` from this folder to launch the local dashboard.\n",
+            "# My Taskunity Workspace\n\n"
+            "Run `taskunity serve` from this folder to launch the local dashboard.\n",
             encoding="utf-8",
         )
 
@@ -417,7 +463,7 @@ def git_sync(workspace: Path) -> dict[str, Any]:
         if status["dirty"]:
             _git(workspace, "add", "-A", "--", ".")
             commit = _git(
-                workspace, "commit", "-m", f"taskwright: sync workspace ({datetime.now():%Y-%m-%d %H:%M})"
+                workspace, "commit", "-m", f"taskunity: sync workspace ({datetime.now():%Y-%m-%d %H:%M})"
             )
             if commit.returncode != 0 and "nothing to commit" not in (commit.stdout + commit.stderr).lower():
                 result["message"] = "Commit failed: " + (commit.stderr.strip() or commit.stdout.strip())
@@ -439,3 +485,72 @@ def git_sync(workspace: Path) -> dict[str, Any]:
     except (OSError, subprocess.SubprocessError) as exc:
         result["message"] = str(exc)
     return result
+
+
+def git_lfs_available(workspace: Path) -> bool:
+    """Return True if git-lfs is installed and accessible."""
+    try:
+        result = subprocess.run(
+            ["git", "lfs", "version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def git_lfs_init(workspace: Path) -> dict[str, Any]:
+    """Initialize git-lfs in the workspace: run `git lfs install` and track assets."""
+    result: dict[str, Any] = {"ok": False, "message": ""}
+    if not git_lfs_available(workspace):
+        result["message"] = "git-lfs is not installed or not on PATH."
+        return result
+    status = git_status(workspace)
+    if not status["tracked"]:
+        result["message"] = status["message"] or "Workspace is not a git repository."
+        return result
+    try:
+        install = _git(workspace, "lfs", "install", "--local")
+        if install.returncode != 0:
+            result["message"] = "git lfs install failed: " + (install.stderr.strip() or install.stdout.strip())
+            return result
+        track = _git(workspace, "lfs", "track", "assets/**")
+        if track.returncode != 0:
+            result["message"] = "git lfs track failed: " + (track.stderr.strip() or track.stdout.strip())
+            return result
+        add = _git(workspace, "add", ".gitattributes")
+        if add.returncode != 0:
+            result["message"] = "git add .gitattributes failed"
+            return result
+        commit = _git(workspace, "commit", "-m", "chore: initialize git-lfs tracking for assets")
+        if commit.returncode != 0 and "nothing to commit" not in (commit.stdout + commit.stderr).lower():
+            result["message"] = "Commit failed: " + (commit.stderr.strip() or commit.stdout.strip())
+            return result
+        result["ok"] = True
+        result["message"] = "git-lfs initialized. Assets directory is now tracked with LFS."
+    except (OSError, subprocess.SubprocessError) as exc:
+        result["message"] = str(exc)
+    return result
+
+
+def git_lfs_status(workspace: Path) -> dict[str, Any]:
+    """Return LFS status information for the workspace."""
+    info: dict[str, Any] = {"available": False, "enabled": False, "tracking_assets": False, "message": ""}
+    info["available"] = git_lfs_available(workspace)
+    if not info["available"]:
+        return info
+    status = git_status(workspace)
+    if not status["tracked"]:
+        return info
+    try:
+        lfs_hooks = workspace / ".git" / "hooks" / "pre-push"
+        info["enabled"] = lfs_hooks.exists()
+        gitattributes = workspace / ".gitattributes"
+        if gitattributes.exists():
+            content = gitattributes.read_text(encoding="utf-8", errors="replace")
+            info["tracking_assets"] = "assets/**" in content or "assets/" in content
+    except (OSError, IOError) as exc:
+        info["message"] = str(exc)
+    return info

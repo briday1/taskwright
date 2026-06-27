@@ -1,17 +1,17 @@
 # Command-line reference
 
-Taskwright exposes a single command, `taskwright`, with two subcommands.
+Taskunity exposes a single command, `taskunity`, with two subcommands.
 
 ```bash
-taskwright --help
+taskunity --help
 ```
 
-## `taskwright init`
+## `taskunity init`
 
 Initialize a new workspace.
 
 ```bash
-taskwright init [PATH] [--no-sample]
+taskunity init [PATH] [--no-sample]
 ```
 
 | Argument / flag | Default | Description |
@@ -22,12 +22,12 @@ taskwright init [PATH] [--no-sample]
 Creates `programs/`, `projects/`, `tasks/`, `milestones/`, and `assets/` directories plus a README
 stub. It does not create starter projects or tasks.
 
-## `taskwright serve`
+## `taskunity serve`
 
 Serve the local web UI for a workspace.
 
 ```bash
-taskwright serve [--workspace PATH] [--host HOST] [--port PORT] [--reload]
+taskunity serve [--workspace PATH] [--host HOST] [--port PORT] [--reload]
 ```
 
 | Flag | Default | Description |
@@ -40,7 +40,7 @@ taskwright serve [--workspace PATH] [--host HOST] [--port PORT] [--reload]
 Example:
 
 ```bash
-taskwright serve --workspace ./my-workboard --host 127.0.0.1 --port 8000
+taskunity serve --workspace ./my-workboard --host 127.0.0.1 --port 8000
 ```
 
 Then open `http://127.0.0.1:8000`.

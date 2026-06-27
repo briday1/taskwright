@@ -3,14 +3,14 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "taskwright"
+name = "taskunity"
 version = "2026.4"
 description = "A local, file-backed productivity app for program/task tracking."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
-  { name = "Taskwright Contributors" }
+  { name = "Taskunity Contributors" }
 ]
 keywords = ["tasks", "productivity", "fastapi", "local-first", "dashboard"]
 classifiers = [
@@ -44,13 +44,13 @@ docs = [
 ]
 
 [project.scripts]
-taskwright = "taskwright.cli:main"
+taskunity = "taskunity.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-taskwright = [
+taskunity = [
   "templates/*.html",
   "templates/partials/*.html",
   "static/*.css",

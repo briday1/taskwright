@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/app.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
   <script src="/static/htmx.min.js"></script>
 </head>
 <body>
@@ -19,10 +21,69 @@
         <p>{{ workspace_name }}</p>
       </div>
     </div>
+    <div class="settings-anchor">
+      <button class="settings-btn" id="settings-btn" aria-label="Settings" title="Settings">⚙</button>
+      <div class="settings-popup" id="settings-popup" hidden>
+        <div class="settings-popup-title">Theme</div>
+        <div class="theme-options">
+          <button class="theme-option" data-theme-opt="system" title="Follow system preference">
+            <span>💻</span>System
+          </button>
+          <button class="theme-option" data-theme-opt="light" title="Light mode">
+            <span>☀️</span>Light
+          </button>
+          <button class="theme-option" data-theme-opt="dark" title="Dark mode">
+            <span>🌙</span>Dark
+          </button>
+        </div>
+      </div>
+    </div>
   </header>
   {% block body %}{% endblock %}
   <script>
     (function () {
+      // --- Theme ---
+      (function () {
+        var THEME_KEY = 'taskunity.theme';
+        function applyTheme(theme) {
+          if (theme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+          } else if (theme === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+          } else {
+            document.documentElement.removeAttribute('data-theme');
+          }
+          document.querySelectorAll('.theme-option').forEach(function (btn) {
+            btn.classList.toggle('active', btn.dataset.themeOpt === (theme || 'system'));
+          });
+        }
+        var saved = localStorage.getItem(THEME_KEY) || 'system';
+        applyTheme(saved);
+        document.addEventListener('click', function (e) {
+          var opt = e.target.closest('[data-theme-opt]');
+          if (opt) {
+            var t = opt.dataset.themeOpt;
+            localStorage.setItem(THEME_KEY, t);
+            applyTheme(t);
+            return;
+          }
+          var btn = e.target.closest('#settings-btn');
+          if (btn) {
+            var popup = document.getElementById('settings-popup');
+            if (popup) popup.hidden = !popup.hidden;
+            if (popup && !popup.hidden) {
+              var saved2 = localStorage.getItem(THEME_KEY) || 'system';
+              document.querySelectorAll('.theme-option').forEach(function (b) {
+                b.classList.toggle('active', b.dataset.themeOpt === saved2);
+              });
+            }
+            return;
+          }
+          var popup2 = document.getElementById('settings-popup');
+          if (popup2 && !e.target.closest('.settings-anchor')) popup2.hidden = true;
+        });
+      })();
+
       function setProject(picker, value, color) {
         var hidden = picker.querySelector('input[name="project"]');
         var current = picker.querySelector('.project-dd-current');
@@ -235,6 +296,31 @@
         if (!form) return;
         var hidden = form.querySelector('[data-show-closed-hidden]');
         if (hidden) hidden.value = e.target.checked ? '1' : '0';
+      });
+
+      function setComposerTab(root, name) {
+        if (!root) return;
+        root.querySelectorAll('[data-activity-tab]').forEach(function (btn) {
+          btn.classList.toggle('active', btn.dataset.activityTab === name);
+        });
+        root.querySelectorAll('[data-activity-pane]').forEach(function (pane) {
+          pane.hidden = pane.dataset.activityPane !== name;
+        });
+      }
+      document.addEventListener('click', function (e) {
+        var tab = e.target.closest('[data-activity-tab]');
+        if (!tab) return;
+        var root = tab.closest('[data-activity-composer]');
+        if (root) setComposerTab(root, tab.dataset.activityTab);
+      });
+      document.querySelectorAll('[data-activity-composer]').forEach(function (root) {
+        setComposerTab(root, 'note');
+      });
+      document.body.addEventListener('htmx:afterSwap', function () {
+        document.querySelectorAll('[data-activity-composer]').forEach(function (root) {
+          var active = root.querySelector('[data-activity-tab].active');
+          setComposerTab(root, active ? active.dataset.activityTab : 'note');
+        });
       });
 
       var PANE_KEY = 'taskwright.sidePaneWidth';

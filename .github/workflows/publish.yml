@@ -34,7 +34,7 @@ jobs:
           import urllib.request
           from datetime import datetime
 
-          package_name = "taskwright"
+          package_name = "taskunity"
           year = datetime.now().year
           year_pattern = re.compile(rf'^{year}\.(\d+)$')
           nums = []
