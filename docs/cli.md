@@ -19,7 +19,7 @@ taskunity init [PATH] [--no-sample]
 | `PATH` | `.` | Folder to initialize as a workspace |
 | `--no-sample` | off | Skip creating the sample task |
 
-Creates `programs/`, `projects/`, `tasks/`, `milestones/`, and `assets/` directories plus a README
+Creates `projects/`, `tasks/`, `milestones/`, and `assets/` directories plus a README
 stub. It does not create starter projects or tasks.
 
 ## `taskunity serve`

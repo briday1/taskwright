@@ -1,3 +1,3 @@
-# My Taskwright Workspace
+# My Taskunity Workspace
 
-Run `taskwright serve` from this folder to launch the local dashboard.
+Run `taskunity serve` from this folder to launch the local dashboard.

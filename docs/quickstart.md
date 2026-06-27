@@ -6,12 +6,8 @@
 taskunity init ./my-workboard
 ```
 
-This scaffolds the folder with empty `programs/`, `projects/`, `tasks/`, `milestones/`, and
-`assets/` directories plus a README stub. It does not create starter projects or tasks:
-
-```bash
-taskunity init ./my-workboard
-```
+This scaffolds the folder with empty `projects/`, `tasks/`, `milestones/`, and `assets/`
+directories plus a README stub. It does not create starter projects or tasks.
 
 ## 2. Serve it
 

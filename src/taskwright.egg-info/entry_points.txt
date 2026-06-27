@@ -1,2 +1,0 @@
-[console_scripts]
-taskwright = taskwright.cli:main
