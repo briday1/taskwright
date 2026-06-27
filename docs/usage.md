@@ -90,6 +90,8 @@ dirty status. The **Sync** button commits, pulls, and pushes in one step. See {d
 Click the ⚙ settings button in the top-right corner to choose between **Light**, **Dark**, or
 **System** (follows your OS preference). The preference is saved in the browser.
 
+![Settings popup — theme selector](_static/screenshots/settings-popup.png)
+
 ## Creating tasks
 
 Use the **Create Task** box in the toolbar. New tasks created in the UI get a random

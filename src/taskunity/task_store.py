@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import secrets
 import shutil
@@ -24,11 +25,30 @@ _ID_RE = re.compile(r'^[A-Z0-9][A-Z0-9\-]*[A-Z0-9]$|^[A-Z0-9]$')
 
 
 def _safe_id(value: str, label: str = "id") -> str:
-    """Return *value* if it is a safe ID token, otherwise raise WorkspaceError."""
+    """Validate *value* is a safe ID token, otherwise raise WorkspaceError.
+
+    This is a lightweight pre-check.  Actual path confinement is enforced by
+    ``_safe_subpath``; always prefer that function when constructing file paths.
+    """
     clean = (value or "").strip()
     if not clean or not _ID_RE.match(clean) or ".." in clean or "/" in clean or "\\" in clean:
         raise WorkspaceError(f"Invalid {label}: {value!r}")
     return clean
+
+
+def _safe_subpath(base: Path, *parts: str) -> Path:
+    """Build ``base / parts`` and verify the result is confined within *base*.
+
+    Uses ``os.path.normpath`` to collapse ``..`` segments so that a crafted
+    component such as ``../../etc/passwd`` resolves outside the workspace and is
+    rejected.  This is the canonical path-injection mitigation pattern.
+    """
+    joined = os.path.join(str(base), *[str(p) for p in parts])
+    normed = os.path.normpath(joined)
+    base_str = os.path.normpath(str(base))
+    if normed != base_str and not normed.startswith(base_str + os.sep):
+        raise WorkspaceError(f"Path traversal detected in: {parts!r}")
+    return Path(normed)
 
 
 def workspace_paths(workspace: Path) -> dict[str, Path]:
@@ -181,7 +201,7 @@ def load_workspace_config(workspace: Path) -> dict[str, str]:
 
 
 def load_task(workspace: Path, task_id: str) -> Task:
-    return Task.model_validate(load_json(workspace / "tasks" / f"{_safe_id(task_id, 'task_id')}.json"))
+    return Task.model_validate(load_json(_safe_subpath(workspace / "tasks", f"{task_id}.json")))
 
 
 def load_all_tasks(workspace: Path) -> list[Task]:
@@ -194,7 +214,7 @@ def load_all_tasks(workspace: Path) -> list[Task]:
 
 def save_task(workspace: Path, task: Task) -> None:
     ensure_workspace(workspace)
-    save_json(workspace / "tasks" / f"{_safe_id(task.id, 'task.id')}.json", task.model_dump(mode="json"))
+    save_json(_safe_subpath(workspace / "tasks", f"{task.id}.json"), task.model_dump(mode="json"))
 
 
 def _generate_task_id() -> str:
@@ -218,7 +238,7 @@ def create_task(workspace: Path, title: str = "New task") -> Task:
 
 
 def delete_task(workspace: Path, task_id: str) -> None:
-    path = workspace / "tasks" / f"{_safe_id(task_id, 'task_id')}.json"
+    path = _safe_subpath(workspace / "tasks", f"{task_id}.json")
     if path.exists():
         path.unlink()
 
@@ -232,16 +252,16 @@ def add_note(workspace: Path, task_id: str, body: str) -> Task:
 
 
 def add_attachment(workspace: Path, task_id: str, filename: str, content: bytes, content_type: str | None = None, description: str = "") -> Task:
-    safe_tid = _safe_id(task_id, "task_id")
-    task = load_task(workspace, safe_tid)
-    safe_name = Path(filename).name
-    target_dir = workspace / "assets" / safe_tid
+    task = load_task(workspace, task_id)
+    safe_name = os.path.basename(filename)
+    target_dir = _safe_subpath(workspace / "assets", task_id)
     target_dir.mkdir(parents=True, exist_ok=True)
-    target_path = target_dir / safe_name
+    target_path = _safe_subpath(target_dir, safe_name)
     target_path.write_bytes(content)
     kind = "image" if (content_type or "").startswith("image/") else "file"
+    rel = os.path.relpath(str(target_path), str(workspace))
     task.attachments.append(
-        Attachment(filename=safe_name, path=f"assets/{safe_tid}/{safe_name}", kind=kind, description=description.strip())
+        Attachment(filename=safe_name, path=rel, kind=kind, description=description.strip())
     )
     save_task(workspace, task)
     return task
@@ -263,18 +283,18 @@ def add_task_activity_image(
     content_type: str | None = None,
     description: str = "",
 ) -> Task:
-    safe_tid = _safe_id(task_id, "task_id")
-    task = load_task(workspace, safe_tid)
-    safe_name = Path(filename).name
-    target_dir = workspace / "assets" / safe_tid
+    task = load_task(workspace, task_id)
+    safe_name = os.path.basename(filename)
+    target_dir = _safe_subpath(workspace / "assets", task_id)
     target_dir.mkdir(parents=True, exist_ok=True)
-    target_path = target_dir / safe_name
+    target_path = _safe_subpath(target_dir, safe_name)
     target_path.write_bytes(content)
+    rel = os.path.relpath(str(target_path), str(workspace))
     description_text = description.strip() or None
     task.activity.append(
         TaskActivityEvent(
             event_type="image",
-            image_path=f"assets/{safe_tid}/{safe_name}",
+            image_path=rel,
             image_filename=safe_name,
             note_text=description_text,
         )
@@ -298,7 +318,7 @@ def log_progress_change(workspace_path: Path, task: Task, old_progress: int, new
 
 
 def load_milestone(workspace: Path, milestone_id: str) -> Milestone:
-    return Milestone.model_validate(load_json(workspace / "milestones" / f"{_safe_id(milestone_id, 'milestone_id')}.json"))
+    return Milestone.model_validate(load_json(_safe_subpath(workspace / "milestones", f"{milestone_id}.json")))
 
 
 def load_all_milestones(workspace: Path) -> list[Milestone]:
@@ -311,7 +331,7 @@ def load_all_milestones(workspace: Path) -> list[Milestone]:
 
 def save_milestone(workspace: Path, milestone: Milestone) -> None:
     ensure_workspace(workspace)
-    save_json(workspace / "milestones" / f"{_safe_id(milestone.id, 'milestone.id')}.json", milestone.model_dump(mode="json"))
+    save_json(_safe_subpath(workspace / "milestones", f"{milestone.id}.json"), milestone.model_dump(mode="json"))
 
 
 def next_milestone_id(workspace: Path) -> str:
@@ -332,11 +352,10 @@ def create_milestone(workspace: Path, title: str = "New milestone") -> Milestone
 
 
 def delete_milestone(workspace: Path, milestone_id: str) -> None:
-    safe_mid = _safe_id(milestone_id, "milestone_id")
-    path = workspace / "milestones" / f"{safe_mid}.json"
+    path = _safe_subpath(workspace / "milestones", f"{milestone_id}.json")
     if path.exists():
         path.unlink()
-    assets = workspace / "assets" / safe_mid
+    assets = _safe_subpath(workspace / "assets", milestone_id)
     if assets.exists():
         shutil.rmtree(assets, ignore_errors=True)
 
@@ -357,17 +376,18 @@ def add_milestone_attachment(
     content_type: str | None = None,
     description: str = "",
 ) -> Milestone:
-    safe_mid = _safe_id(milestone_id, "milestone_id")
-    milestone = load_milestone(workspace, safe_mid)
-    safe_name = Path(filename).name
-    target_dir = workspace / "assets" / safe_mid
+    milestone = load_milestone(workspace, milestone_id)
+    safe_name = os.path.basename(filename)
+    target_dir = _safe_subpath(workspace / "assets", milestone_id)
     target_dir.mkdir(parents=True, exist_ok=True)
-    (target_dir / safe_name).write_bytes(content)
+    target_path = _safe_subpath(target_dir, safe_name)
+    target_path.write_bytes(content)
+    rel = os.path.relpath(str(target_path), str(workspace))
     kind = "image" if (content_type or "").startswith("image/") else "file"
     milestone.attachments.append(
         Attachment(
             filename=safe_name,
-            path=f"assets/{safe_mid}/{safe_name}",
+            path=rel,
             kind=kind,
             description=description.strip(),
         )
@@ -379,7 +399,7 @@ def add_milestone_attachment(
 def add_task_to_milestone(workspace: Path, milestone_id: str, task_id: str) -> Milestone:
     milestone = load_milestone(workspace, milestone_id)
     if task_id and task_id not in milestone.task_ids:
-        if (workspace / "tasks" / f"{_safe_id(task_id, 'task_id')}.json").exists():
+        if _safe_subpath(workspace / "tasks", f"{task_id}.json").exists():
             milestone.task_ids.append(task_id)
             save_milestone(workspace, milestone)
     return milestone
