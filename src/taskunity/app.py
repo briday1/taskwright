@@ -968,6 +968,16 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
                 )
             elif event.event_type == "image":
                 filename = (event.image_filename or "Attachment").strip() or "Attachment"
+                image_name = event.image_filename or event.image_path or ""
+                is_image = Path(image_name).suffix.lower() in {
+                    ".png",
+                    ".jpg",
+                    ".jpeg",
+                    ".gif",
+                    ".webp",
+                    ".bmp",
+                    ".svg",
+                }
                 raw_events.append(
                     {
                         "created_at": event.created_at,
@@ -976,7 +986,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
                         "preview_title": filename,
                         "preview_body": _preview_text(event.note_text),
                         "preview_path": event.image_path or "",
-                        "is_image": True,
+                        "is_image": is_image,
                         "progress_before": None,
                         "progress_after": None,
                     }
@@ -1289,6 +1299,16 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
                     )
                 elif event.event_type == "image":
                     filename = (event.image_filename or "Attachment").strip() or "Attachment"
+                    image_name = event.image_filename or event.image_path or ""
+                    is_image = Path(image_name).suffix.lower() in {
+                        ".png",
+                        ".jpg",
+                        ".jpeg",
+                        ".gif",
+                        ".webp",
+                        ".bmp",
+                        ".svg",
+                    }
                     raw_events.append(
                         {
                             "created_at": event.created_at,
@@ -1298,7 +1318,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
                             "preview_title": filename,
                             "preview_body": _preview_text(event.note_text),
                             "preview_path": event.image_path or "",
-                            "is_image": True,
+                            "is_image": is_image,
                             "progress_after": None,
                         }
                     )
