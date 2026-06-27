@@ -109,7 +109,7 @@
             return;
           }
           if (ext === 'pdf') {
-            hoverCard.innerHTML += '<iframe class="burndown-preview-frame" src="' + url + '#toolbar=0" title="Attachment preview"></iframe>';
+            hoverCard.innerHTML += '<div class="burndown-preview-body muted">PDF preview is not shown inline here. Use “Open in new tab” to view it.</div>';
             return;
           }
           if (isTextExt(ext)) {

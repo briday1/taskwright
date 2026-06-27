@@ -326,6 +326,57 @@
         });
       });
 
+      function getMainLayout() {
+        return document.getElementById('app-main');
+      }
+      function collapseTaskPanel() {
+        var main = getMainLayout();
+        if (!main) return;
+        main.classList.add('panel-collapsed');
+      }
+      function expandTaskPanel() {
+        var main = getMainLayout();
+        if (!main) return;
+        main.classList.remove('panel-collapsed');
+      }
+      document.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-panel-collapse]');
+        if (!btn) return;
+        collapseTaskPanel();
+      });
+      document.addEventListener('click', function (e) {
+        var panelTrigger = e.target.closest('[hx-target="#task-panel"]');
+        if (!panelTrigger) return;
+        expandTaskPanel();
+      });
+      document.addEventListener('pointerdown', function (e) {
+        var panelTrigger = e.target.closest('[hx-target="#task-panel"]');
+        if (!panelTrigger) return;
+        expandTaskPanel();
+      }, true);
+      document.body.addEventListener('htmx:beforeRequest', function (e) {
+        var trigger = e && e.detail ? e.detail.elt : null;
+        if (!trigger) return;
+        var panelTarget = trigger.getAttribute && trigger.getAttribute('hx-target');
+        if (panelTarget === '#task-panel' || trigger.closest('[hx-target="#task-panel"]')) {
+          expandTaskPanel();
+        }
+      });
+      document.body.addEventListener('htmx:beforeSwap', function (e) {
+        var target = e && e.detail ? e.detail.target : null;
+        if (!target) return;
+        var panel = target.id === 'task-panel' ? target : target.closest ? target.closest('#task-panel') : null;
+        if (panel) expandTaskPanel();
+      });
+      document.body.addEventListener('htmx:afterSwap', function (e) {
+        var target = e && e.detail ? e.detail.target : null;
+        if (!target) return;
+        var panel = target.id === 'task-panel' ? target : target.closest ? target.closest('#task-panel') : null;
+        if (!panel) return;
+        var hasContent = !!panel.children.length && (panel.textContent || '').trim().length > 0;
+        if (hasContent) expandTaskPanel();
+      });
+
       function paneBounds() {
         var max = Math.min(Math.floor(window.innerWidth * 0.62), 820);
         var min = 300;

@@ -5,38 +5,45 @@
   </div>
 
   {% if milestones %}
-    <div class="milestone-cards">
+    <div class="milestone-list">
       {% for m in milestones %}
         {% set r = milestone_rollups.get(m.id) %}
-        <div class="milestone-card {{ m.status }}" style="--ms-color: {{ m.color or '#3567e0' }}">
-          <button class="milestone-open" hx-get="/partials/main?milestone={{ m.id }}&view=board{% if filters.show_closed %}&show_closed=1{% endif %}&stale_days={{ filters.stale_days }}" hx-target="#app-main" hx-swap="outerHTML" title="Filter tasks to this milestone">
-            <div class="mc-head">
+        <button
+          class="milestone-list-item milestone-open-row {{ m.status }}"
+          style="--ms-color: {{ m.color or '#3567e0' }}"
+          hx-get="/partials/main?milestone={{ m.id }}&view=board{% if filters.show_closed %}&show_closed=1{% endif %}&stale_days={{ filters.stale_days }}"
+          hx-target="#app-main"
+          hx-swap="outerHTML"
+          title="Open milestone view"
+        >
+          <div class="milestone-list-head">
+            <div class="milestone-list-title">
               <span class="mc-flag" aria-hidden="true">◆</span>
               <strong>{{ m.title }}</strong>
               <span class="ms-status {{ m.status }}">{{ m.status }}</span>
             </div>
-            {% if m.summary %}<p class="mc-summary">{{ m.summary }}</p>{% endif %}
-            <div class="mc-projects">
-              {% for proj in m.projects %}
-                <span class="project" style="background: {{ project_colors.get(proj, '#2e6fd8') }}22; color: {{ project_colors.get(proj, '#2e6fd8') }}">{{ proj }}</span>
-              {% else %}
-                <span class="muted">No projects assigned</span>
-              {% endfor %}
-            </div>
-            <div class="mc-progress" title="{{ r.progress }}% complete">
-              <div style="width: {{ r.progress }}%; background: {{ m.color or '#3567e0' }}"></div>
-            </div>
-            <div class="mc-stats">
+            <div class="mc-stats compact">
               <span>{{ r.total }} task{{ '' if r.total == 1 else 's' }}</span>
               <span>{{ r.done }} done</span>
               <span>{{ r.progress }}%</span>
               {% if m.target_date %}<span class="mc-target">🎯 {{ m.target_date }}</span>{% endif %}
             </div>
-          </button>
-          <div class="mc-foot">
-            <button class="btn-link" hx-get="/milestones/{{ m.id }}/panel?view=milestones{% if filters.show_closed %}&show_closed=1{% endif %}&stale_days={{ filters.stale_days }}" hx-target="#task-panel" hx-swap="innerHTML">Details</button>
           </div>
-        </div>
+          {% if m.summary %}<p class="mc-summary clamp-1">{{ m.summary }}</p>{% endif %}
+          <div class="mc-projects compact">
+            {% for proj in m.projects[:3] %}
+              <span class="project" style="background: {{ project_colors.get(proj, '#2e6fd8') }}22; color: {{ project_colors.get(proj, '#2e6fd8') }}">{{ proj }}</span>
+            {% endfor %}
+            {% if m.projects|length > 3 %}
+              <span class="muted">+{{ m.projects|length - 3 }} more</span>
+            {% elif m.projects|length == 0 %}
+              <span class="muted">No projects assigned</span>
+            {% endif %}
+          </div>
+          <div class="mc-progress" title="{{ r.progress }}% complete">
+            <div style="width: {{ r.progress }}%; background: {{ m.color or '#3567e0' }}"></div>
+          </div>
+        </button>
       {% endfor %}
     </div>
   {% else %}
