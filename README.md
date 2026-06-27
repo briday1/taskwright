@@ -12,23 +12,23 @@ burndown charts, and an editable task side panel.
 
 | Task List | Task Board |
 |-----------|-----------|
-| ![Task List](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/task-list.png) | ![Task Board](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/task-board.png) |
+| ![Task List](docs/_static/screenshots/task-list.png) | ![Task Board](docs/_static/screenshots/task-board.png) |
 
 | Gantt Timeline | Calendar |
 |----------------|----------|
-| ![Gantt](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/gantt.png) | ![Calendar](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/calendar.png) |
+| ![Gantt](docs/_static/screenshots/gantt.png) | ![Calendar](docs/_static/screenshots/calendar.png) |
 
 | Milestones | Projects |
 |------------|----------|
-| ![Milestones](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/milestones.png) | ![Projects](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/projects.png) |
+| ![Milestones](docs/_static/screenshots/milestones.png) | ![Projects](docs/_static/screenshots/projects.png) |
 
 | Task Activity Log | Settings (Theme) |
 |-------------------|------------------|
-| ![Task Panel](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/task-panel.png) | ![Settings Popup](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/settings-popup.png) |
+| ![Task Panel](docs/_static/screenshots/task-panel.png) | ![Settings Popup](docs/_static/screenshots/settings-popup.png) |
 
 | Task Burndown Chart | Milestone Burndown Chart |
 |---------------------|--------------------------|
-| ![Task Burndown](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/task-burndown.png) | ![Milestone Burndown](https://raw.githubusercontent.com/briday1/taskwright/main/docs/_static/screenshots/milestone-burndown.png) |
+| ![Task Burndown](docs/_static/screenshots/task-burndown.png) | ![Milestone Burndown](docs/_static/screenshots/milestone-burndown.png) |
 
 ## Why Taskunity
 
