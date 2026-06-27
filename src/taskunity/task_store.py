@@ -253,13 +253,15 @@ def add_note(workspace: Path, task_id: str, body: str) -> Task:
 
 def add_attachment(workspace: Path, task_id: str, filename: str, content: bytes, content_type: str | None = None, description: str = "") -> Task:
     task = load_task(workspace, task_id)
-    safe_name = os.path.basename(filename)
+    safe_name = Path(filename).name  # cross-platform: strips any leading path component
     target_dir = _safe_subpath(workspace / "assets", task_id)
     target_dir.mkdir(parents=True, exist_ok=True)
     target_path = _safe_subpath(target_dir, safe_name)
     target_path.write_bytes(content)
     kind = "image" if (content_type or "").startswith("image/") else "file"
     rel = os.path.relpath(str(target_path), str(workspace))
+    if rel.startswith(".."):
+        raise WorkspaceError(f"Attachment path escapes workspace: {rel!r}")
     task.attachments.append(
         Attachment(filename=safe_name, path=rel, kind=kind, description=description.strip())
     )
@@ -284,12 +286,14 @@ def add_task_activity_image(
     description: str = "",
 ) -> Task:
     task = load_task(workspace, task_id)
-    safe_name = os.path.basename(filename)
+    safe_name = Path(filename).name  # cross-platform: strips any leading path component
     target_dir = _safe_subpath(workspace / "assets", task_id)
     target_dir.mkdir(parents=True, exist_ok=True)
     target_path = _safe_subpath(target_dir, safe_name)
     target_path.write_bytes(content)
     rel = os.path.relpath(str(target_path), str(workspace))
+    if rel.startswith(".."):
+        raise WorkspaceError(f"Image path escapes workspace: {rel!r}")
     description_text = description.strip() or None
     task.activity.append(
         TaskActivityEvent(
@@ -377,12 +381,14 @@ def add_milestone_attachment(
     description: str = "",
 ) -> Milestone:
     milestone = load_milestone(workspace, milestone_id)
-    safe_name = os.path.basename(filename)
+    safe_name = Path(filename).name  # cross-platform: strips any leading path component
     target_dir = _safe_subpath(workspace / "assets", milestone_id)
     target_dir.mkdir(parents=True, exist_ok=True)
     target_path = _safe_subpath(target_dir, safe_name)
     target_path.write_bytes(content)
     rel = os.path.relpath(str(target_path), str(workspace))
+    if rel.startswith(".."):
+        raise WorkspaceError(f"Attachment path escapes workspace: {rel!r}")
     kind = "image" if (content_type or "").startswith("image/") else "file"
     milestone.attachments.append(
         Attachment(
