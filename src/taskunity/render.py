@@ -310,7 +310,7 @@ def build_calendar(
 def tasks_to_jsonantt(
     tasks: list[Task],
     *,
-    title: str = "Taskwright Export",
+    title: str = "Taskunity Export",
     project_colors: dict[str, str] | None = None,
     project_order: list[str] | None = None,
 ) -> dict[str, Any]:

@@ -10,6 +10,7 @@ dist/
 
 # Virtual environments
 .venv/
+.venv/**
 venv/
 env/
 ENV/
@@ -21,6 +22,7 @@ ENV/
 .coverage
 htmlcov/
 .tox/
+src/taskwright.egg-info/
 
 # Docs build output
 docs/_build/

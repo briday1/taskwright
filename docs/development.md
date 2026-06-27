@@ -3,8 +3,8 @@
 ## Setup
 
 ```bash
-git clone https://github.com/briday1/taskwright.git
-cd taskwright
+git clone https://github.com/briday1/taskunity.git
+cd taskunity
 pip install -e ".[dev]"
 ```
 

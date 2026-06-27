@@ -71,3 +71,8 @@ def test_tasks_to_jsonantt_exports_all_dependency_arrows() -> None:
     assert task_c["not_before"] == "A"
     assert {"from": "A", "to": "C"} in data["arrows"]
     assert {"from": "B", "to": "C"} in data["arrows"]
+
+
+def test_tasks_to_jsonantt_uses_taskunity_default_title() -> None:
+    data = tasks_to_jsonantt([Task(id="A", title="Task A", project="Apollo")])
+    assert data["title"] == "Taskunity Export"
