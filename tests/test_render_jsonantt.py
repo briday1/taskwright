@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from taskwright.models import Task
-from taskwright.render import tasks_to_jsonantt
+from taskunity.models import Task
+from taskunity.render import tasks_to_jsonantt
 
 
 def test_tasks_to_jsonantt_groups_by_project_and_includes_task_layer() -> None:

@@ -160,55 +160,120 @@
     </form>
   </section>
 
-  <section class="subsection notes-section">
+  <section class="subsection activity-section">
     <div class="notes-head">
-      <h3>Notes {% if selected_task.notes %}<span class="notes-count-badge">{{ selected_task.notes|length }}</span>{% endif %}</h3>
+      <h3>Activity Log <span class="notes-count-badge">{{ task_activity_entries|length }}</span></h3>
     </div>
-    <div class="notes-list">
-      {% for note in selected_task.notes|reverse %}
-        <article class="note">
-          <small>{{ note.created_at }}</small>
-          <div class="markdown">{{ note.body|markdown|safe }}</div>
+    <div class="activity-timeline">
+      {% for entry in task_activity_entries %}
+        <article class="activity-item">
+          <div class="activity-item-icon" aria-hidden="true">
+            {% if entry.kind == 'progress_update' %}📈{% elif entry.kind == 'note' %}📝{% elif entry.is_image %}🖼️{% else %}📄{% endif %}
+          </div>
+          <div class="activity-item-body">
+            <div class="activity-item-meta">
+              <span class="activity-item-type">
+                {% if entry.kind == 'progress_update' %}Progress{% elif entry.kind == 'note' %}Note{% elif entry.is_image %}Image{% else %}File{% endif %}
+              </span>
+              <time datetime="{{ entry.created_at }}">{{ entry.created_at }}</time>
+            </div>
+            {% if entry.kind == 'progress_update' %}
+              <div class="activity-progress">Progress: {{ entry.progress_before }}% → {{ entry.progress_after }}%</div>
+            {% elif entry.kind == 'note' %}
+              <div class="markdown">{{ (entry.body or '')|markdown|safe }}</div>
+            {% else %}
+              <div class="attachment-item activity-asset">
+                {% if entry.is_image and entry.path %}
+                  <a href="/{{ entry.path }}" target="_blank" class="attachment-thumb"><img src="/{{ entry.path }}" alt="{{ entry.filename or 'Attachment' }}"></a>
+                {% else %}
+                  <span class="attachment-icon" aria-hidden="true">📄</span>
+                {% endif %}
+                <div class="attachment-info">
+                  {% if entry.path %}
+                    <a href="/{{ entry.path }}" target="_blank" class="attachment-name">{{ entry.filename or 'Attachment' }}</a>
+                  {% else %}
+                    <span class="attachment-name">{{ entry.filename or 'Attachment' }}</span>
+                  {% endif %}
+                  {% if entry.body %}<div class="attachment-desc markdown">{{ entry.body|markdown|safe }}</div>{% endif %}
+                  {% if entry.path %}
+                    <div class="attachment-meta"><a href="/{{ entry.path }}" download class="attachment-dl">Download</a></div>
+                  {% endif %}
+                </div>
+              </div>
+            {% endif %}
+          </div>
         </article>
       {% else %}
-        <p class="muted">No notes yet. Add your first one below.</p>
+        <p class="muted">No activity yet. Add your first update below.</p>
       {% endfor %}
     </div>
-    <form hx-post="/tasks/{{ selected_task.id }}/note" hx-target="#task-panel" hx-swap="innerHTML" class="inline-form note-add">
-      <label class="field-label">Add a note</label>
-      <textarea name="body" rows="3" placeholder="Write a note using Markdown…"></textarea>
-      <button type="submit">Add Note</button>
-    </form>
+    <div class="activity-composer" data-activity-composer>
+      <div class="composer-switch">
+        <button type="button" class="composer-tab active" data-activity-tab="note">Add Note</button>
+        <button type="button" class="composer-tab" data-activity-tab="upload">Upload</button>
+      </div>
+      <form hx-post="/tasks/{{ selected_task.id }}/note" hx-target="#task-panel" hx-swap="innerHTML" class="inline-form note-add" data-activity-pane="note">
+        <label class="field-label">Add a note</label>
+        <textarea name="body" rows="3" placeholder="Write a note using Markdown…"></textarea>
+        <button type="submit">Add Note</button>
+      </form>
+      <form hx-post="/tasks/{{ selected_task.id }}/attachment" hx-target="#task-panel" hx-swap="innerHTML" enctype="multipart/form-data" class="attachment-form" data-activity-pane="upload" hidden>
+        <input type="file" name="attachment" required>
+        <input type="text" name="description" placeholder="Description (optional)">
+        <button type="submit">Upload</button>
+      </form>
+    </div>
   </section>
 
   <section class="subsection">
-    <h3>Attachments</h3>
-    <ul class="attachment-list">
-      {% for att in selected_task.attachments %}
-        <li class="attachment-item">
-          {% if att.kind == 'image' %}
-            <a href="/{{ att.path }}" target="_blank" class="attachment-thumb"><img src="/{{ att.path }}" alt="{{ att.filename }}"></a>
-          {% else %}
-            <span class="attachment-icon" aria-hidden="true">📄</span>
-          {% endif %}
-          <div class="attachment-info">
-            <a href="/{{ att.path }}" target="_blank" class="attachment-name">{{ att.filename }}</a>
-            {% if att.description %}<p class="attachment-desc">{{ att.description }}</p>{% endif %}
-            <div class="attachment-meta">
-              {% if att.uploaded_at %}<span title="Uploaded">{{ att.uploaded_at[:10] }}{% if att.uploaded_at[11:16] %} {{ att.uploaded_at[11:16] }}{% endif %}</span>{% endif %}
-              <a href="/{{ att.path }}" download class="attachment-dl">Download</a>
-            </div>
-          </div>
-        </li>
-      {% else %}
-        <li class="muted">No attachments yet.</li>
-      {% endfor %}
-    </ul>
-    <form hx-post="/tasks/{{ selected_task.id }}/attachment" hx-target="#task-panel" hx-swap="innerHTML" enctype="multipart/form-data" class="attachment-form">
-      <input type="file" name="attachment" required>
-      <input type="text" name="description" placeholder="Description (optional)">
-      <button type="submit">Upload</button>
-    </form>
+    <h3>Task Burndown Chart</h3>
+    <canvas id="task-burndown-{{ selected_task.id }}" class="burndown-canvas" height="180"></canvas>
+    <script>
+      (function () {
+        var canvas = document.getElementById('task-burndown-{{ selected_task.id }}');
+        if (!canvas || typeof Chart === 'undefined') return;
+        window.taskunityCharts = window.taskunityCharts || {};
+        if (window.taskunityCharts[canvas.id]) window.taskunityCharts[canvas.id].destroy();
+        fetch('/tasks/{{ selected_task.id }}/burndown.json')
+          .then(function (response) { return response.json(); })
+          .then(function (payload) {
+            var points = (payload.points || []).map(function (point) {
+              return { x: point.x || new Date().toISOString(), y: point.y, label: point.label };
+            });
+            window.taskunityCharts[canvas.id] = new Chart(canvas, {
+              type: 'line',
+              data: {
+                datasets: [{
+                  label: 'Remaining work',
+                  data: points,
+                  borderColor: '#3567e0',
+                  backgroundColor: 'rgba(53, 103, 224, 0.12)',
+                  fill: true,
+                  tension: 0.25
+                }]
+              },
+              options: {
+                parsing: false,
+                plugins: {
+                  legend: { display: false },
+                  tooltip: {
+                    callbacks: {
+                      label: function (ctx) {
+                        return (ctx.raw && ctx.raw.label ? ctx.raw.label + ' • ' : '') + 'Remaining ' + ctx.raw.y + '%';
+                      }
+                    }
+                  }
+                },
+                scales: {
+                  x: { type: 'time', time: { tooltipFormat: 'PPpp' } },
+                  y: { beginAtZero: true, max: 100, title: { display: true, text: 'Remaining %' } }
+                }
+              }
+            });
+          })
+          .catch(function () {});
+      })();
+    </script>
   </section>
 
   <details class="subsection">

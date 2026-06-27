@@ -1,3 +1,3 @@
-recursive-include src/taskwright/templates *.html
-recursive-include src/taskwright/static *.css *.js
+recursive-include src/taskunity/templates *.html
+recursive-include src/taskunity/static *.css *.js
 include README.md

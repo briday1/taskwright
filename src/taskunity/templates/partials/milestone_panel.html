@@ -161,6 +161,57 @@
     </form>
   </section>
 
+  <section class="subsection">
+    <h3>Milestone Burndown Chart</h3>
+    <canvas id="milestone-burndown-{{ selected_milestone.id }}" class="burndown-canvas" height="180"></canvas>
+    <script>
+      (function () {
+        var canvas = document.getElementById('milestone-burndown-{{ selected_milestone.id }}');
+        if (!canvas || typeof Chart === 'undefined') return;
+        window.taskunityCharts = window.taskunityCharts || {};
+        if (window.taskunityCharts[canvas.id]) window.taskunityCharts[canvas.id].destroy();
+        fetch('/milestones/{{ selected_milestone.id }}/burndown.json')
+          .then(function (response) { return response.json(); })
+          .then(function (payload) {
+            var points = (payload.points || []).map(function (point) {
+              return { x: point.x || new Date().toISOString(), y: point.y, label: point.label };
+            });
+            window.taskunityCharts[canvas.id] = new Chart(canvas, {
+              type: 'line',
+              data: {
+                datasets: [{
+                  label: 'Remaining work',
+                  data: points,
+                  borderColor: '#2f9e5f',
+                  backgroundColor: 'rgba(47, 158, 95, 0.12)',
+                  fill: true,
+                  tension: 0.25
+                }]
+              },
+              options: {
+                parsing: false,
+                plugins: {
+                  legend: { display: false },
+                  tooltip: {
+                    callbacks: {
+                      label: function (ctx) {
+                        return (ctx.raw && ctx.raw.label ? ctx.raw.label + ' • ' : '') + 'Remaining ' + ctx.raw.y + '%';
+                      }
+                    }
+                  }
+                },
+                scales: {
+                  x: { type: 'time', time: { tooltipFormat: 'PPpp' } },
+                  y: { beginAtZero: true, max: 100, title: { display: true, text: 'Remaining %' } }
+                }
+              }
+            });
+          })
+          .catch(function () {});
+      })();
+    </script>
+  </section>
+
   <form action="/milestones/{{ selected_milestone.id }}/delete" method="post" onsubmit="return confirm('Delete milestone {{ selected_milestone.title }}? Tasks are not deleted.')" class="danger-zone">
     <button type="submit">Delete Milestone</button>
   </form>

@@ -3,7 +3,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from taskwright.task_store import ensure_workspace, git_status, git_sync
+from taskunity.task_store import ensure_workspace, git_status, git_sync
 
 
 def _run_git(path: Path, *args: str) -> subprocess.CompletedProcess[str]:

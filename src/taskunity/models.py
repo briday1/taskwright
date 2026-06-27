@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import secrets
 from datetime import datetime
 from typing import Any, Literal
 
@@ -33,6 +34,17 @@ class Attachment(BaseModel):
     uploaded_at: str = Field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
 
 
+class TaskActivityEvent(BaseModel):
+    id: str = Field(default_factory=lambda: secrets.token_hex(8))
+    event_type: Literal["note", "image", "progress_update"]
+    created_at: str = Field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
+    note_text: str | None = None
+    image_path: str | None = None
+    image_filename: str | None = None
+    progress_before: int | None = None
+    progress_after: int | None = None
+
+
 class Task(BaseModel):
     id: str
     title: str
@@ -50,6 +62,7 @@ class Task(BaseModel):
     checklist: list[ChecklistItem] = Field(default_factory=list)
     notes: list[Note] = Field(default_factory=list)
     attachments: list[Attachment] = Field(default_factory=list)
+    activity: list[TaskActivityEvent] = Field(default_factory=list)
     extra: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -88,4 +101,3 @@ class Milestone(BaseModel):
         if isinstance(value, str):
             return [value]
         return list(value)
-

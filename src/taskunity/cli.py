@@ -10,7 +10,7 @@ from .task_store import copy_starter_files, ensure_workspace
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(prog="taskwright", description="Local file-backed workspace/task tracker")
+    parser = argparse.ArgumentParser(prog="taskunity", description="Local file-backed workspace/task tracker")
     sub = parser.add_subparsers(dest="command", required=True)
 
     init_p = sub.add_parser("init", help="Initialize a new workspace")
@@ -31,8 +31,8 @@ def main(argv: list[str] | None = None) -> None:
             ensure_workspace(target)
         else:
             copy_starter_files(target)
-        print(f"Initialized taskwright workspace: {target}")
-        print("Run: taskwright serve --workspace", target)
+        print(f"Initialized taskunity workspace: {target}")
+        print("Run: taskunity serve --workspace", target)
         return
 
     if args.command == "serve":
