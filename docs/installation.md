@@ -7,8 +7,8 @@ Taskunity requires **Python 3.10 or newer**.
 A PyPI release will come later. For now, install from a clone of the repository:
 
 ```bash
-git clone https://github.com/briday1/taskwright.git
-cd taskwright
+git clone https://github.com/briday1/taskunity.git
+cd taskunity
 pip install -e .
 ```
 
