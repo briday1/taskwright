@@ -42,9 +42,12 @@
   {% block body %}{% endblock %}
   <script>
     (function () {
+      // --- App-wide localStorage key constants ---
+      var THEME_KEY = 'taskunity.theme';
+      var PANE_KEY = 'taskunity.sidePaneWidth';
+
       // --- Theme ---
       (function () {
-        var THEME_KEY = 'taskunity.theme';
         function applyTheme(theme) {
           if (theme === 'dark') {
             document.documentElement.setAttribute('data-theme', 'dark');
@@ -323,7 +326,6 @@
         });
       });
 
-      var PANE_KEY = 'taskunity.sidePaneWidth';
       function paneBounds() {
         var max = Math.min(Math.floor(window.innerWidth * 0.62), 820);
         var min = 300;
