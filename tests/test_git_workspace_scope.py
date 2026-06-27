@@ -53,3 +53,22 @@ def test_git_status_allows_workspace_repo_root(tmp_path: Path) -> None:
 
     assert status["tracked"] is True
     assert status["message"] == ""
+
+
+def test_git_sync_bootstraps_upstream_for_fresh_repo(tmp_path: Path) -> None:
+    remote = tmp_path / "remote.git"
+    _run_git(tmp_path, "init", "--bare", str(remote))
+
+    workspace = tmp_path / "workspace"
+    ensure_workspace(workspace)
+    _run_git(workspace, "init")
+    _run_git(workspace, "config", "user.name", "Taskunity Test")
+    _run_git(workspace, "config", "user.email", "taskunity@example.com")
+    _run_git(workspace, "remote", "add", "origin", str(remote))
+
+    result = git_sync(workspace)
+
+    assert result["ok"] is True
+    assert "set upstream" in result["message"].lower()
+    upstream = _run_git(workspace, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+    assert upstream.stdout.strip() == "origin/main"
