@@ -5,8 +5,7 @@ commit to git.
 
 ```text
 workspace/
-  programs/
-    taskwright.json     # workspace metadata (name, description, dates)
+  config.json           # workspace/app metadata
   projects/
     apollo.json         # one file per project
   tasks/
@@ -18,19 +17,16 @@ workspace/
       screenshot.png
 ```
 
-## Program files (`programs/*.json`)
+## Workspace config (`config.json`)
 
-Each program is stored as one JSON file under `programs/` (for example,
-`programs/taskwright.json`). A program file holds workspace-level metadata such as the program
-name, description, and dates.
+Each workspace has a root-level `config.json` with basic editable metadata used by the UI.
 
 ```json
 {
-  "name": "My Program",
-  "description": "What this program is about",
-  "status": "active",
-  "start_date": null,
-  "target_date": null
+  "app_name": "Taskwright",
+  "workspace_name": "My Workspace",
+  "workspace_description": "Local file-backed workspace/task tracker",
+  "export_title": "My Workspace"
 }
 ```
 

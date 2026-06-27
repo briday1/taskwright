@@ -22,6 +22,7 @@ The source of truth is a workspace folder:
 
 ```text
 workspace/
+  config.json           # editable workspace/app metadata
   projects/
     apollo.json         # one file per project
   tasks/
@@ -63,9 +64,9 @@ Then open:
 http://127.0.0.1:8000
 ```
 
-`init` is available if you want to scaffold a folder explicitly. It creates the empty
-`projects/`, `tasks/`, `milestones/`, and `assets/` directories plus a README stub. It does not
-create starter projects or tasks; use the app to add your own once you begin.
+`init` is available if you want to scaffold a folder explicitly. It creates an editable
+`config.json`, empty `projects/`, `tasks/`, `milestones/`, and `assets/` directories, plus a README
+stub. It does not create starter projects or tasks; use the app to add your own once you begin.
 
 ## Serve an existing workspace
 
@@ -172,4 +173,3 @@ ruff check .
 ## License
 
 MIT
-
