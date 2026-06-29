@@ -3,7 +3,9 @@ from __future__ import annotations
 import csv
 import io
 import json
+import urllib.error
 import urllib.parse
+import urllib.request
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -13,7 +15,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from .models import ChecklistItem, Task, TaskActivityEvent
+from .models import ChecklistItem, Milestone, Note, Project, Task, TaskActivityEvent
 from .render import (
     SORTS,
     STATUSES,
@@ -35,25 +37,29 @@ from .task_store import (
     create_milestone,
     create_task,
     delete_milestone,
+    delete_project,
     delete_task,
     ensure_workspace,
     git_lfs_init,
     git_lfs_status,
     git_status,
     git_sync,
-    log_progress_change,
     load_all_milestones,
-    load_all_tasks,
     load_all_projects,
+    load_all_tasks,
     load_milestone,
-    load_workspace_config,
+    load_project,
     load_task,
+    load_workspace_config,
+    log_progress_change,
+    normalize_task_project_refs,
     project_colors,
     register_project,
-    normalize_task_project_refs,
     remove_task_from_milestone,
     save_milestone,
+    save_project,
     save_task,
+    save_workspace_config,
     upsert_project,
 )
 
@@ -250,12 +256,188 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
             "export_title": config["export_title"],
         }
 
+    def ai_config() -> dict[str, str]:
+        config = load_workspace_config(workspace)
+        return {
+            "ai_enabled": config.get("ai_enabled", "0"),
+            "ai_base_url": config.get("ai_base_url", ""),
+            "ai_api_key": config.get("ai_api_key", ""),
+            "ai_model": config.get("ai_model", ""),
+            "ai_timeout_seconds": config.get("ai_timeout_seconds", "30"),
+            "ai_max_tokens": config.get("ai_max_tokens", "2048"),
+            "ai_temperature": config.get("ai_temperature", "0.7"),
+        }
+
+    def _ai_call(
+        messages: list[dict[str, str]],
+        cfg: dict[str, str],
+        *,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> dict:
+        """Call the configured OpenAI-compatible chat completions endpoint."""
+        base_url = cfg["ai_base_url"].rstrip("/")
+        api_key = cfg["ai_api_key"]
+        model = cfg["ai_model"]
+        timeout = max(5, min(120, int(cfg.get("ai_timeout_seconds") or "30")))
+        if max_tokens is None:
+            max_tokens = max(1, int(cfg.get("ai_max_tokens") or "2048"))
+        if temperature is None:
+            try:
+                temperature = float(cfg.get("ai_temperature") or "0.7")
+            except ValueError:
+                temperature = 0.7
+
+        payload = json.dumps({
+            "model": model,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "stream": False,
+        }).encode("utf-8")
+
+        req = urllib.request.Request(
+            f"{base_url}/v1/chat/completions",
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + api_key,
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+
+    def _ai_fetch_models(cfg: dict[str, str]) -> list[str]:
+        """Fetch available models from the configured endpoint."""
+        base_url = cfg["ai_base_url"].rstrip("/")
+        api_key = cfg["ai_api_key"]
+        timeout = max(5, min(30, int(cfg.get("ai_timeout_seconds") or "30")))
+        req = urllib.request.Request(
+            f"{base_url}/v1/models",
+            headers={"Authorization": "Bearer " + api_key},
+            method="GET",
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        return sorted(m["id"] for m in data.get("data", []) if m.get("id"))
+
+    def _parse_ai_suggestions(text: str) -> dict:
+        """Try to parse structured suggestions from the AI response text.
+
+        Looks for a JSON block fenced with ```json ... ``` or a bare JSON object.
+        On parse failure, returns an empty suggestions dict so callers can degrade
+        gracefully to plain text rendering.
+        """
+        import re
+        suggestions: dict = {}
+        # Try fenced code block first
+        fence_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+        if fence_match:
+            try:
+                suggestions = json.loads(fence_match.group(1))
+            except (json.JSONDecodeError, ValueError):
+                pass
+        # Fall back: try last bare JSON object in text
+        if not suggestions:
+            for match in re.finditer(r"\{[^{}]+\}", text, re.DOTALL):
+                try:
+                    parsed = json.loads(match.group())
+                    if any(k in parsed for k in ("suggested_tasks", "suggested_checklist_items", "suggested_note")):
+                        suggestions = parsed
+                except (json.JSONDecodeError, ValueError):
+                    continue
+        return suggestions
+
+    def _build_task_context(task: Task, all_tasks: list[Task]) -> str:
+        task_by_id = {t.id: t for t in all_tasks}
+        deps = [task_by_id[d].title for d in task.depends_on if d in task_by_id]
+        checklist = [
+            f"{'[x]' if item.done else '[ ]'} {item.text}"
+            for item in task.checklist
+        ]
+        notes_preview = [n.body[:200] for n in task.notes[-3:]]
+        data = {
+            "id": task.id,
+            "title": task.title,
+            "status": task.status,
+            "priority": task.priority,
+            "project": task.project or task.project_id or "",
+            "summary": task.summary,
+            "description": task.description,
+            "start_date": task.start_date or "",
+            "due_date": task.due_date or "",
+            "percent_complete": task.percent_complete,
+            "tags": task.tags,
+            "depends_on_titles": deps,
+            "checklist": checklist,
+            "recent_notes": notes_preview,
+        }
+        return json.dumps(data, indent=2)
+
+    def _build_milestone_context(milestone: Milestone, all_tasks: list[Task]) -> str:
+        tasks_by_id = {t.id: t for t in all_tasks}
+        milestone_tasks = []
+        for tid in milestone.task_ids:
+            t = tasks_by_id.get(tid)
+            if t:
+                milestone_tasks.append({
+                    "id": t.id,
+                    "title": t.title,
+                    "status": t.status,
+                    "priority": t.priority,
+                    "percent_complete": t.percent_complete,
+                    "due_date": t.due_date or "",
+                    "project": t.project or "",
+                })
+        notes_preview = [n.body[:200] for n in milestone.notes[-3:]]
+        data = {
+            "id": milestone.id,
+            "title": milestone.title,
+            "status": milestone.status,
+            "summary": milestone.summary,
+            "description": milestone.description,
+            "start_date": milestone.start_date or "",
+            "target_date": milestone.target_date or "",
+            "task_count": len(milestone.task_ids),
+            "tasks": milestone_tasks,
+            "recent_notes": notes_preview,
+        }
+        return json.dumps(data, indent=2)
+
+    SYSTEM_PROMPT = """\
+You are a planning assistant integrated into Taskunity, a local task management app.
+You help users plan, organise, and break down their work.
+You only use the context provided — never invent data not given to you.
+When suggesting actionable changes, include a JSON block in your response using this format:
+
+```json
+{
+  "suggested_tasks": [
+    {"title": "...", "summary": "...", "priority": "normal"}
+  ],
+  "suggested_checklist_items": ["item 1", "item 2"],
+  "suggested_note": "..."
+}
+```
+
+Only include the fields that are relevant. Omit the JSON block if no structured changes are needed.
+Always provide a human-readable reply_markdown as plain text before or after the JSON block.
+Keep responses concise and actionable."""
+
+
     def parse_calendar_year(value: str | int | None) -> int | None:
         try:
             year = int(str(value).strip())
         except (TypeError, ValueError):
             return None
         return year if 1900 <= year <= 3000 else None
+
+    def _ai_error_html(message: str) -> str:
+        escaped = (
+            message.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        )
+        return f'<div class="ai-msg ai-msg-error"><strong>Error:</strong> {escaped}</div>'
 
     def build_query(
         projects: list[str], date_from: str, date_to: str, q: str, view: str = "", sort: str = "",
@@ -513,6 +695,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
                 for t in sort_tasks(all_tasks, "title", "asc")
             ],
             "task_titles": {t.id: t.title for t in all_tasks},
+            **ai_config(),
             "filters": {
                 "projects": projects,
                 "date_from": date_from,
@@ -1948,4 +2131,404 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
     def healthz() -> Response:
         return Response("ok", media_type="text/plain")
 
+    # --- Settings -----------------------------------------------------------
+
+    @app.post("/settings/save", response_class=HTMLResponse)
+    def settings_save_route(
+        request: Request,
+        ai_enabled: str = Form("0"),
+        ai_base_url: str = Form(""),
+        ai_api_key: str = Form(""),
+        ai_model: str = Form(""),
+        ai_timeout_seconds: str = Form("30"),
+        ai_max_tokens: str = Form("2048"),
+        ai_temperature: str = Form("0.7"),
+    ) -> HTMLResponse:
+        save_workspace_config(workspace, {
+            "ai_enabled": "1" if ai_enabled in {"1", "on", "true", "yes"} else "0",
+            "ai_base_url": ai_base_url.strip(),
+            "ai_api_key": ai_api_key.strip(),
+            "ai_model": ai_model.strip(),
+            "ai_timeout_seconds": ai_timeout_seconds.strip() or "30",
+            "ai_max_tokens": ai_max_tokens.strip() or "2048",
+            "ai_temperature": ai_temperature.strip() or "0.7",
+        })
+        cfg = ai_config()
+        return HTMLResponse(
+            '<div id="ai-settings-status" class="ai-save-ok">✓ AI settings saved.</div>'
+            f'<input type="hidden" id="ai-enabled-state" value="{cfg["ai_enabled"]}">'
+        )
+
+    @app.get("/ai/models", response_class=HTMLResponse)
+    def ai_models_route(request: Request) -> HTMLResponse:
+        cfg = ai_config()
+        if cfg["ai_enabled"] != "1":
+            return HTMLResponse('<option value="">AI not enabled</option>')
+        if not cfg["ai_base_url"]:
+            return HTMLResponse('<option value="">No endpoint configured</option>')
+        try:
+            models = _ai_fetch_models(cfg)
+        except Exception as exc:
+            return HTMLResponse(f'<option value="">Error: {exc}</option>')
+        current = cfg["ai_model"]
+        opts = "\n".join(
+            f'<option value="{m}"{"selected" if m == current else ""}>{m}</option>'
+            for m in models
+        )
+        return HTMLResponse(opts or '<option value="">No models found</option>')
+
+    # --- Project panel ------------------------------------------------------
+
+    @app.get("/projects/{project_id}/panel", response_class=HTMLResponse)
+    def project_panel_route(
+        request: Request,
+        project_id: str,
+        view: str = "projects",
+        stale_days: str = "",
+        show_closed: str = "",
+    ) -> HTMLResponse:
+        try:
+            project = load_project(workspace, project_id)
+        except Exception:
+            return HTMLResponse('<div class="empty-panel"><h2>Project not found</h2></div>')
+        all_tasks = load_all_tasks(workspace)
+        project_name_by_id = {p.id: p.name for p in load_all_projects(workspace) if p.id}
+        for task in all_tasks:
+            if task.project_id and task.project_id in project_name_by_id:
+                task.project = project_name_by_id[task.project_id]
+        project_tasks = [
+            t for t in all_tasks
+            if (project.id and t.project_id == project.id) or ((not t.project_id) and t.project == project.name)
+        ]
+        return templates.TemplateResponse(
+            request,
+            "partials/project_panel.html",
+            {
+                "request": request,
+                "selected_project": project,
+                "project_tasks": project_tasks,
+                "filters": {
+                    "view": view,
+                    "stale_days": parse_stale_days(stale_days),
+                    "show_closed": parse_toggle(show_closed),
+                },
+            },
+        )
+
+    @app.post("/projects/{project_id}/save", response_class=HTMLResponse)
+    def project_save_route(
+        request: Request,
+        project_id: str,
+        name: str = Form(...),
+        description: str = Form(""),
+        color: str = Form("#2e6fd8"),
+        f_view: str = Form("projects"),
+        f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
+        f_show_closed: str = Form(""),
+    ) -> HTMLResponse:
+        try:
+            project = load_project(workspace, project_id)
+        except Exception:
+            project = Project(id=project_id, name=name)
+        project.name = name.strip() or project.name
+        project.description = description.strip()
+        project.color = color.strip() or "#2e6fd8"
+        save_project(workspace, project)
+        return templates.TemplateResponse(
+            request,
+            "partials/main.html",
+            context(request, view=f_view, stale_days=parse_stale_days(f_stale_days), show_closed=parse_toggle(f_show_closed)),
+        )
+
+    @app.post("/projects/{project_id}/delete", response_class=HTMLResponse)
+    def project_delete_route(
+        request: Request,
+        project_id: str,
+        f_view: str = Form("projects"),
+        f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
+        f_show_closed: str = Form(""),
+    ) -> HTMLResponse:
+        delete_project(workspace, project_id)
+        return templates.TemplateResponse(
+            request,
+            "partials/main.html",
+            context(request, view=f_view, stale_days=parse_stale_days(f_stale_days), show_closed=parse_toggle(f_show_closed)),
+        )
+
+    # --- AI Assistant -------------------------------------------------------
+
+    @app.get("/ai/panel/task/{task_id}", response_class=HTMLResponse)
+    def ai_task_panel_route(
+        request: Request,
+        task_id: str,
+        view: str = "list",
+        milestone: str = "",
+        show_closed: str = "",
+        stale_days: str = "",
+    ) -> HTMLResponse:
+        cfg = ai_config()
+        try:
+            task = load_task(workspace, task_id)
+        except Exception:
+            return HTMLResponse('<div class="empty-panel"><h2>Task not found</h2></div>')
+        all_tasks = load_all_tasks(workspace)
+        ctx_json = _build_task_context(task, all_tasks)
+        return templates.TemplateResponse(
+            request,
+            "partials/assistant_panel.html",
+            {
+                "request": request,
+                "ai_cfg": cfg,
+                "context_type": "task",
+                "entity_id": task_id,
+                "entity_title": task.title,
+                "context_json": ctx_json,
+                "filters": {
+                    "view": view,
+                    "milestone": milestone,
+                    "show_closed": parse_toggle(show_closed),
+                    "stale_days": parse_stale_days(stale_days),
+                },
+            },
+        )
+
+    @app.get("/ai/panel/milestone/{milestone_id}", response_class=HTMLResponse)
+    def ai_milestone_panel_route(
+        request: Request,
+        milestone_id: str,
+        view: str = "list",
+        show_closed: str = "",
+        stale_days: str = "",
+    ) -> HTMLResponse:
+        cfg = ai_config()
+        try:
+            milestone = load_milestone(workspace, milestone_id)
+        except Exception:
+            return HTMLResponse('<div class="empty-panel"><h2>Milestone not found</h2></div>')
+        all_tasks = load_all_tasks(workspace)
+        ctx_json = _build_milestone_context(milestone, all_tasks)
+        return templates.TemplateResponse(
+            request,
+            "partials/assistant_panel.html",
+            {
+                "request": request,
+                "ai_cfg": cfg,
+                "context_type": "milestone",
+                "entity_id": milestone_id,
+                "entity_title": milestone.title,
+                "context_json": ctx_json,
+                "filters": {
+                    "view": view,
+                    "milestone": milestone_id,
+                    "show_closed": parse_toggle(show_closed),
+                    "stale_days": parse_stale_days(stale_days),
+                },
+            },
+        )
+
+    @app.post("/ai/chat", response_class=HTMLResponse)
+    async def ai_chat_route(
+        request: Request,
+        context_type: str = Form(...),
+        entity_id: str = Form(...),
+        user_message: str = Form(...),
+        context_json: str = Form(""),
+        history: str = Form("[]"),
+        f_view: str = Form("list"),
+        f_milestone: str = Form(""),
+        f_show_closed: str = Form(""),
+        f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
+    ) -> HTMLResponse:
+        cfg = ai_config()
+
+        if cfg["ai_enabled"] != "1":
+            return HTMLResponse(_ai_error_html("AI is not enabled. Configure it in ⚙ Settings."))
+        if not cfg["ai_base_url"]:
+            return HTMLResponse(_ai_error_html("No AI endpoint configured. Set Base URL in ⚙ Settings."))
+        if not cfg["ai_model"]:
+            return HTMLResponse(_ai_error_html("No AI model configured. Set Model in ⚙ Settings."))
+
+        # Parse conversation history
+        try:
+            history_msgs: list[dict[str, str]] = json.loads(history or "[]")
+            if not isinstance(history_msgs, list):
+                history_msgs = []
+        except (json.JSONDecodeError, ValueError):
+            history_msgs = []
+
+        # Build messages
+        user_content = f"Context ({context_type}):\n```json\n{context_json}\n```\n\nUser: {user_message}"
+        messages: list[dict[str, str]] = [{"role": "system", "content": SYSTEM_PROMPT}]
+        # Include prior turns (skip system messages already in history)
+        for msg in history_msgs:
+            if msg.get("role") in {"user", "assistant"}:
+                messages.append({"role": msg["role"], "content": msg["content"]})
+        messages.append({"role": "user", "content": user_content})
+
+        try:
+            response = _ai_call(messages, cfg)
+            reply_text = response["choices"][0]["message"]["content"]
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")[:300]
+            return HTMLResponse(_ai_error_html(f"HTTP {exc.code}: {exc.reason} — {body}"))
+        except urllib.error.URLError as exc:
+            return HTMLResponse(_ai_error_html(f"Connection error: {exc.reason}"))
+        except Exception as exc:
+            return HTMLResponse(_ai_error_html(f"Error: {exc}"))
+
+        suggestions = _parse_ai_suggestions(reply_text)
+        # Strip the JSON block from the display text
+        import re as _re
+        display_text = _re.sub(r"```(?:json)?\s*\{.*?\}\s*```", "", reply_text, flags=_re.DOTALL).strip()
+
+        new_history = list(history_msgs)
+        new_history.append({"role": "user", "content": user_message})
+        new_history.append({"role": "assistant", "content": reply_text})
+        history_json = json.dumps(new_history)
+
+        has_tasks = bool(suggestions.get("suggested_tasks"))
+        has_checklist = bool(suggestions.get("suggested_checklist_items")) and context_type == "task"
+        has_note = bool(suggestions.get("suggested_note"))
+        tasks_json = json.dumps(suggestions.get("suggested_tasks", []))
+        checklist_json = json.dumps(suggestions.get("suggested_checklist_items", []))
+        note_text = str(suggestions.get("suggested_note", ""))
+
+        rendered_md = markdown_lib.markdown(display_text, extensions=["extra", "sane_lists"])
+        return HTMLResponse(
+            templates.get_template("partials/ai_message.html").render({
+                "reply_html": rendered_md,
+                "has_tasks": has_tasks,
+                "has_checklist": has_checklist,
+                "has_note": has_note,
+                "tasks_json": tasks_json,
+                "checklist_json": checklist_json,
+                "note_text": note_text,
+                "entity_id": entity_id,
+                "context_type": context_type,
+                "history_json": history_json,
+                "f_view": f_view,
+                "f_milestone": f_milestone,
+                "f_show_closed": f_show_closed,
+                "f_stale_days": f_stale_days,
+            })
+        )
+
+    @app.post("/ai/apply/tasks/{milestone_id}", response_class=HTMLResponse)
+    def ai_apply_tasks_route(
+        request: Request,
+        milestone_id: str,
+        tasks_json: str = Form("[]"),
+        f_view: str = Form("list"),
+        f_show_closed: str = Form(""),
+        f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
+    ) -> HTMLResponse:
+        try:
+            suggested: list[dict] = json.loads(tasks_json)
+        except (json.JSONDecodeError, ValueError):
+            suggested = []
+        created = []
+        for item in suggested:
+            if not isinstance(item, dict) or not item.get("title"):
+                continue
+            task = create_task(workspace, item["title"])
+            task.summary = str(item.get("summary", ""))[:500]
+            if item.get("priority") in {"low", "normal", "high", "critical"}:
+                task.priority = item["priority"]
+            save_task(workspace, task)
+            # add to milestone if valid
+            try:
+                from .task_store import add_task_to_milestone as _atm
+                _atm(workspace, milestone_id, task.id)
+            except Exception:
+                pass
+            created.append(task.title)
+        n = len(created)
+        return templates.TemplateResponse(
+            request,
+            "partials/main.html",
+            context(
+                request,
+                view=f_view,
+                milestone=milestone_id,
+                show_closed=parse_toggle(f_show_closed),
+                stale_days=parse_stale_days(f_stale_days),
+                git_message=f"Created {n} task{'s' if n != 1 else ''} from AI suggestions." if n else "No tasks created.",
+            ),
+        )
+
+    @app.post("/ai/apply/checklist/{task_id}", response_class=HTMLResponse)
+    def ai_apply_checklist_route(
+        request: Request,
+        task_id: str,
+        checklist_json: str = Form("[]"),
+        f_view: str = Form("list"),
+        f_milestone: str = Form(""),
+        f_show_closed: str = Form(""),
+        f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
+    ) -> HTMLResponse:
+        try:
+            items: list[str] = json.loads(checklist_json)
+        except (json.JSONDecodeError, ValueError):
+            items = []
+        try:
+            task = load_task(workspace, task_id)
+        except Exception:
+            return HTMLResponse('<div class="empty-panel"><h2>Task not found</h2></div>')
+        added = 0
+        for item in items:
+            text = str(item).strip()
+            if text:
+                task.checklist.append(ChecklistItem(text=text))
+                added += 1
+        if added:
+            save_task(workspace, task)
+        return templates.TemplateResponse(
+            request,
+            "partials/main.html",
+            context(
+                request,
+                selected_task=task,
+                view=f_view,
+                milestone=f_milestone,
+                show_closed=parse_toggle(f_show_closed),
+                stale_days=parse_stale_days(f_stale_days),
+                git_message=f"Added {added} checklist item{'s' if added != 1 else ''} from AI suggestions.",
+            ),
+        )
+
+    @app.post("/ai/apply/note/{task_id}", response_class=HTMLResponse)
+    def ai_apply_note_route(
+        request: Request,
+        task_id: str,
+        note_text: str = Form(""),
+        f_view: str = Form("list"),
+        f_milestone: str = Form(""),
+        f_show_closed: str = Form(""),
+        f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
+    ) -> HTMLResponse:
+        body = note_text.strip()
+        if body:
+            try:
+                task = load_task(workspace, task_id)
+                task.notes.append(Note(body=body))
+                save_task(workspace, task)
+                selected = task
+            except Exception:
+                selected = None
+        else:
+            selected = None
+        return templates.TemplateResponse(
+            request,
+            "partials/main.html",
+            context(
+                request,
+                selected_task=selected,
+                view=f_view,
+                milestone=f_milestone,
+                show_closed=parse_toggle(f_show_closed),
+                stale_days=parse_stale_days(f_stale_days),
+            ),
+        )
+
     return app
+

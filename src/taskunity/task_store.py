@@ -160,6 +160,14 @@ def save_project(workspace: Path, project: Project, *, previous_id: str = "") ->
             old_path.unlink()
 
 
+def delete_project(workspace: Path, project_id: str) -> None:
+    """Remove a project file from the workspace."""
+    clean = _safe_id(project_id, "project id")
+    path = workspace / "projects" / _project_filename(clean)
+    if path.exists():
+        path.unlink()
+
+
 DEFAULT_PROJECT_COLOR = "#2e6fd8"
 PROJECT_PALETTE = [
     "#2e6fd8",
@@ -282,7 +290,18 @@ def default_workspace_config(workspace: Path) -> dict[str, str]:
         "workspace_name": workspace_name,
         "workspace_description": DEFAULT_WORKSPACE_DESCRIPTION,
         "export_title": workspace_name,
+        "ai_enabled": "0",
+        "ai_base_url": "",
+        "ai_api_key": "",
+        "ai_model": "",
+        "ai_timeout_seconds": "30",
+        "ai_max_tokens": "2048",
+        "ai_temperature": "0.7",
     }
+
+
+# Keys that may intentionally be empty string (should not fall back to default when blank).
+_AI_PASSTHROUGH_KEYS = {"ai_base_url", "ai_api_key", "ai_model"}
 
 
 def load_workspace_config(workspace: Path) -> dict[str, str]:
@@ -293,8 +312,25 @@ def load_workspace_config(workspace: Path) -> dict[str, str]:
     for key, fallback in defaults.items():
         value = raw.get(key)
         stripped = value.strip() if isinstance(value, str) else ""
-        config[key] = stripped or fallback
+        if key in _AI_PASSTHROUGH_KEYS:
+            # Preserve intentional empty strings — don't fall back to default.
+            config[key] = stripped if key in raw else fallback
+        else:
+            config[key] = stripped or fallback
     return config
+
+
+def save_workspace_config(workspace: Path, updates: dict[str, str]) -> dict[str, str]:
+    """Merge *updates* into the workspace config.json and return the reloaded config."""
+    ensure_workspace(workspace)
+    config_path = workspace / "config.json"
+    try:
+        raw: dict[str, Any] = load_json(config_path)
+    except WorkspaceError:
+        raw = {}
+    raw.update({k: v for k, v in updates.items()})
+    save_json(config_path, raw)
+    return load_workspace_config(workspace)
 
 
 def _task_dir(workspace: Path, task_id: str) -> Path:

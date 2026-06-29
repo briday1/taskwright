@@ -9,31 +9,35 @@
       {% for p in projects %}
         {% set r = project_rollups.get(p.id, {'total': 0, 'done': 0, 'working': 0, 'progress': 0}) %}
         {% set p_state = 'done' if r.progress >= 100 and r.total > 0 else ('active' if r.working > 0 else 'planned') %}
-        <button
-          type="button"
-          class="milestone-list-item compact milestone-open-row"
-          style="--ms-color: {{ p.color }}"
-          hx-get="/partials/main?view=list&project={{ p.id|urlencode }}{% if filters.date_from %}&date_from={{ filters.date_from|urlencode }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to|urlencode }}{% endif %}{% if filters.q %}&q={{ filters.q|urlencode }}{% endif %}{% if filters.sort and filters.sort != 'priority' %}&sort={{ filters.sort|urlencode }}{% endif %}{% if filters.sort and filters.sort != 'priority' and filters.sort_dir %}&sort_dir={{ filters.sort_dir|urlencode }}{% endif %}{% if filters.hide_old %}&hide_old=1{% endif %}{% if filters.hide_done %}&hide_done=1{% endif %}{% if filters.panel_task %}&panel_task={{ filters.panel_task|urlencode }}{% endif %}&stale_days={{ filters.stale_days }}"
-          hx-target="#app-main"
-          hx-swap="outerHTML"
-          title="View tasks for {{ p.name }}"
-        >
-          <div class="milestone-list-head">
-            <div class="milestone-list-title">
-              <span class="mc-flag" aria-hidden="true">◆</span>
-              <strong>{{ p.name }}</strong>
-              <span class="ms-status {{ p_state }}">{{ p_state }}</span>
+        <div class="milestone-list-item compact milestone-open-row project-row" style="--ms-color: {{ p.color }}">
+          <button
+            type="button"
+            class="project-open-btn"
+            hx-get="/projects/{{ p.id }}/panel?view={{ filters.view }}&stale_days={{ filters.stale_days }}{% if filters.show_closed %}&show_closed=1{% endif %}"
+            hx-target="#task-panel"
+            hx-swap="innerHTML"
+            title="Edit {{ p.name }}"
+          >
+            <div class="milestone-list-head">
+              <div class="milestone-list-title">
+                <span class="mc-flag" aria-hidden="true">◆</span>
+                <strong>{{ p.name }}</strong>
+                <span class="ms-status {{ p_state }}">{{ p_state }}</span>
+              </div>
+              <div class="mc-stats compact">
+                <span>{{ r.total }} task{{ '' if r.total == 1 else 's' }}</span>
+                <span>{{ r.done }} done</span>
+                <span>{{ r.progress }}%</span>
+              </div>
             </div>
-            <div class="mc-stats compact">
-              <span>{{ r.total }} task{{ '' if r.total == 1 else 's' }}</span>
-              <span>{{ r.done }} done</span>
-              <span>{{ r.progress }}%</span>
-            </div>
-          </div>
-
-          {% if p.description %}<p class="mc-summary clamp-1">{{ p.description }}</p>{% endif %}
-
-        </button>
+            {% if p.description %}<p class="mc-summary clamp-1">{{ p.description }}</p>{% endif %}
+          </button>
+          <a
+            href="/?view=list&project={{ p.id|urlencode }}{% if filters.date_from %}&date_from={{ filters.date_from|urlencode }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to|urlencode }}{% endif %}{% if filters.q %}&q={{ filters.q|urlencode }}{% endif %}&stale_days={{ filters.stale_days }}"
+            class="project-filter-link"
+            title="View tasks for {{ p.name }}"
+          >View tasks →</a>
+        </div>
       {% endfor %}
     </div>
   {% else %}

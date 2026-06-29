@@ -1,0 +1,63 @@
+<div class="panel-scroll">
+  <div class="panel-heading sticky">
+    <div class="task-panel-title-row">
+      <button type="button" class="btn-link task-collapse-btn" data-panel-collapse title="Collapse details" aria-label="Collapse details">×</button>
+      <h2>{{ selected_project.name }}</h2>
+    </div>
+  </div>
+
+  <form hx-post="/projects/{{ selected_project.id }}/save" hx-target="#app-main" hx-swap="outerHTML" class="task-form" style="margin-top:.95rem">
+    <input type="hidden" name="f_view" value="{{ filters.view }}">
+    <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
+    <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
+
+    <label>
+      <span>Name</span>
+      <input name="name" value="{{ selected_project.name }}" required>
+    </label>
+
+    <div class="form-grid">
+      <label>
+        <span>Color</span>
+        <input type="color" name="color" value="{{ selected_project.color or '#2e6fd8' }}" class="ms-color-input">
+      </label>
+    </div>
+
+    <label>
+      <span>Description</span>
+      <textarea name="description" rows="3">{{ selected_project.description }}</textarea>
+    </label>
+
+    <button type="submit">Save Project</button>
+  </form>
+
+  <section class="subsection">
+    <h3>Tasks <span class="notes-count-badge">{{ project_tasks|length }}</span></h3>
+    {% if project_tasks %}
+      <ul class="ms-task-list">
+        {% for t in project_tasks %}
+          <li class="ms-task {{ t.status }}">
+            <span class="ms-task-title">{{ t.title }}</span>
+            <span class="ms-task-meta">
+              <span class="status-pill {{ t.status }}">{{ t.status }}</span>
+              {% if t.due_date %}<span class="muted">due {{ t.due_date }}</span>{% endif %}
+            </span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">No tasks in this project yet.</p>
+    {% endif %}
+  </section>
+
+  <form action="/projects/{{ selected_project.id }}/delete" method="post"
+        onsubmit="return confirm('Delete project {{ selected_project.name }}? Tasks will not be deleted.')"
+        class="danger-zone">
+    <input type="hidden" name="f_view" value="{{ filters.view }}">
+    <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
+    <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
+    <button type="submit">Delete Project</button>
+  </form>
+
+  <p class="task-id-footer">Project ID: <span class="mono">{{ selected_project.id }}</span></p>
+</div>
