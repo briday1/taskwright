@@ -1,0 +1,70 @@
+<div class="panel-scroll ai-panel-scroll">
+  <div class="panel-heading sticky">
+    <div class="task-panel-title-row">
+      <button type="button" class="btn-link task-collapse-btn" data-ai-panel-close title="Close AI assistant" aria-label="Close AI assistant">×</button>
+      <h2>✦ AI Assistant</h2>
+    </div>
+  </div>
+
+  {% if ai_cfg.ai_enabled != '1' %}
+    <div class="ai-disabled-notice">
+      <p>AI assistant is not enabled.</p>
+      <p class="muted">Enable and configure it in <strong>⚙ Settings → AI Assistant</strong>.</p>
+    </div>
+  {% else %}
+    <div class="ai-context-badge">
+      <span class="ai-context-type">{{ context_type }}</span>
+      <span class="ai-context-title">{{ entity_title }}</span>
+    </div>
+
+    <div class="ai-messages" id="ai-messages"></div>
+
+    <div class="ai-input-area">
+      <form id="ai-chat-form" class="ai-chat-form"
+            hx-post="/ai/chat"
+            hx-target="#ai-messages"
+            hx-swap="beforeend"
+            hx-indicator="#ai-thinking"
+            hx-on::after-request="this.querySelector('textarea').value=''; document.getElementById('ai-history').value = document.getElementById('ai-messages').dataset.history || ''">
+        <input type="hidden" name="context_type" value="{{ context_type }}">
+        <input type="hidden" name="entity_id" value="{{ entity_id }}">
+        <input type="hidden" name="context_json" value="{{ context_json | e }}">
+        <input type="hidden" name="history" id="ai-history" value="[]">
+        <input type="hidden" name="f_view" value="{{ filters.view }}">
+        <input type="hidden" name="f_milestone" value="{{ filters.milestone }}">
+        <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
+        <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
+
+        <div class="ai-quick-actions">
+          {% if context_type == 'milestone' %}
+            <button type="button" class="ai-quick-btn" data-ai-prompt="Break down this milestone into actionable tasks with clear deliverables.">Suggest tasks</button>
+            <button type="button" class="ai-quick-btn" data-ai-prompt="Identify potential blockers and risks for this milestone.">Find blockers</button>
+            <button type="button" class="ai-quick-btn" data-ai-prompt="Create a week-by-week execution plan for this milestone.">Work plan</button>
+          {% else %}
+            <button type="button" class="ai-quick-btn" data-ai-prompt="Suggest a detailed checklist to complete this task.">Suggest checklist</button>
+            <button type="button" class="ai-quick-btn" data-ai-prompt="What are the key risks or unknowns for this task?">Find risks</button>
+            <button type="button" class="ai-quick-btn" data-ai-prompt="Help me break this task into smaller sub-tasks.">Break down</button>
+          {% endif %}
+        </div>
+
+        <div class="ai-textarea-row">
+          <textarea
+            name="user_message"
+            class="ai-textarea"
+            placeholder="Ask about this {{ context_type }}…"
+            rows="3"
+            required
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.closest('form').requestSubmit();}"
+          ></textarea>
+          <button type="submit" class="ai-send-btn" title="Send">→</button>
+        </div>
+      </form>
+
+      <div id="ai-thinking" class="ai-thinking htmx-indicator">
+        <span class="ai-thinking-dot"></span>
+        <span class="ai-thinking-dot"></span>
+        <span class="ai-thinking-dot"></span>
+      </div>
+    </div>
+  {% endif %}
+</div>

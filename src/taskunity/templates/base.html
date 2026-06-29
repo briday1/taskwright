@@ -36,7 +36,62 @@
             <span>🌙</span>Dark
           </button>
         </div>
-      </div>
+
+      <div class="settings-popup-title settings-section-sep">AI Assistant</div>
+      <form id="ai-settings-form"
+            hx-post="/settings/save"
+            hx-target="#ai-settings-status"
+            hx-swap="outerHTML">
+        <div class="ai-settings-grid">
+          <label class="ai-setting-row ai-setting-row-toggle">
+            <span class="ai-setting-label">Enable AI</span>
+            <input type="checkbox" name="ai_enabled" id="ai-enabled-cb" value="1"
+                   {% if ai_enabled %}checked{% endif %}
+                   onchange="document.getElementById('ai-settings-fields').style.display=this.checked?'':'none'">
+          </label>
+          <div id="ai-settings-fields" {% if not ai_enabled %}style="display:none"{% endif %}>
+            <label class="ai-setting-row">
+              <span class="ai-setting-label">Base URL</span>
+              <input type="url" name="ai_base_url" value="{{ ai_base_url }}" placeholder="https://your-endpoint.example.com" class="ai-setting-input">
+            </label>
+            <label class="ai-setting-row">
+              <span class="ai-setting-label">API Key</span>
+              <input type="password" name="ai_api_key" value="{{ ai_api_key }}" placeholder="••••••••" class="ai-setting-input" autocomplete="off">
+            </label>
+            <label class="ai-setting-row">
+              <span class="ai-setting-label">Model</span>
+              <div class="ai-model-row">
+                <input type="text" name="ai_model" id="ai-model-input" value="{{ ai_model }}" placeholder="e.g. gpt-4" class="ai-setting-input">
+                <button type="button" class="ai-load-models-btn" id="ai-load-models-btn"
+                        hx-get="/ai/models"
+                        hx-target="#ai-model-datalist"
+                        hx-swap="innerHTML"
+                        title="Load available models from endpoint">↻</button>
+              </div>
+              <datalist id="ai-model-datalist"></datalist>
+            </label>
+            <div class="ai-setting-row ai-settings-row-grid3">
+              <label>
+                <span class="ai-setting-label">Timeout (s)</span>
+                <input type="number" name="ai_timeout_seconds" value="{{ ai_timeout_seconds }}" min="5" max="120" class="ai-setting-input-sm">
+              </label>
+              <label>
+                <span class="ai-setting-label">Max tokens</span>
+                <input type="number" name="ai_max_tokens" value="{{ ai_max_tokens }}" min="64" max="8192" class="ai-setting-input-sm">
+              </label>
+              <label>
+                <span class="ai-setting-label">Temperature</span>
+                <input type="number" name="ai_temperature" value="{{ ai_temperature }}" min="0" max="2" step="0.1" class="ai-setting-input-sm">
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="ai-settings-actions">
+          <button type="submit" class="ai-settings-save-btn">Save AI settings</button>
+          <div id="ai-settings-status"></div>
+        </div>
+      </form>
+    </div>
     </div>
   </header>
   {% block body %}{% endblock %}
@@ -594,6 +649,60 @@
         initPaneResizer(document);
         initChartResizeObserver(document);
         scheduleChartResize();
+      });
+
+      // --- AI Panel ---
+      function openAiPanel() {
+        var panel = document.getElementById('ai-panel');
+        if (panel) panel.hidden = false;
+      }
+      function closeAiPanel() {
+        var panel = document.getElementById('ai-panel');
+        if (panel) {
+          panel.hidden = true;
+          panel.innerHTML = '';
+        }
+      }
+      document.addEventListener('click', function (e) {
+        // Open AI panel via HTMX-injected content, triggered by data-open-ai-panel buttons
+        var openBtn = e.target.closest('[data-open-ai-panel]');
+        if (openBtn) {
+          openAiPanel();
+          return;
+        }
+        // Close AI panel
+        var closeBtn = e.target.closest('[data-ai-panel-close]');
+        if (closeBtn) {
+          closeAiPanel();
+          return;
+        }
+      });
+      // Quick action prompts in the AI panel
+      document.addEventListener('click', function (e) {
+        var qBtn = e.target.closest('[data-ai-prompt]');
+        if (!qBtn) return;
+        var prompt = qBtn.dataset.aiPrompt;
+        var form = document.getElementById('ai-chat-form');
+        if (!form) return;
+        var ta = form.querySelector('textarea[name="user_message"]');
+        if (ta) {
+          ta.value = prompt;
+          ta.focus();
+        }
+      });
+      // Load model list into the datalist when user clicks the ↻ button
+      document.addEventListener('click', function (e) {
+        var loadBtn = e.target.closest('#ai-load-models-btn');
+        if (!loadBtn) return;
+        var modelInput = document.getElementById('ai-model-input');
+        var datalist = document.getElementById('ai-model-datalist');
+        if (datalist && datalist.options.length > 0 && modelInput) {
+          modelInput.setAttribute('list', 'ai-model-datalist');
+        }
+        // HTMX handles the actual request, just wire the list attribute after swap
+        loadBtn.addEventListener('htmx:afterSwap', function () {
+          if (modelInput) modelInput.setAttribute('list', 'ai-model-datalist');
+        }, { once: true });
       });
     })();
   </script>

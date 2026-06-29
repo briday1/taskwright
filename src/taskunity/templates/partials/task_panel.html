@@ -91,7 +91,17 @@
         </div>
       </div>
     </div>
-    <button type="submit">Save Task</button>
+    <div class="panel-actions-row">
+      <button type="submit">Save Task</button>
+      {% if ai_enabled == '1' %}
+        <button type="button" class="btn-ai ask-ai-btn"
+                hx-get="/ai/panel/task/{{ selected_task.id }}?view={{ filters.view }}&milestone={{ filters.milestone }}{% if filters.show_closed %}&show_closed=1{% endif %}&stale_days={{ filters.stale_days }}"
+                hx-target="#ai-panel"
+                hx-swap="innerHTML"
+                data-open-ai-panel
+                title="Ask AI about this task">✦ Ask AI</button>
+      {% endif %}
+    </div>
   </form>
 
   <section class="subsection checklist-section">
