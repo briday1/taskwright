@@ -696,8 +696,11 @@ button:focus-visible { outline: none; box-shadow: var(--ring); }
 .git-badge.dirty { background: #fceae7; color: var(--blocked); }
 .git-badge.ok { background: #e6f5ec; color: var(--done); }
 .git-badge.warn { background: var(--bg-soft); color: var(--muted); }
-.git-sync-form { display: inline; margin: 0; }
+.git-sync-form { display: inline-flex; align-items: center; margin: 0; }
 .git-sync-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
   background: var(--accent);
   color: #fff;
   border: none;
@@ -707,6 +710,18 @@ button:focus-visible { outline: none; box-shadow: var(--ring); }
   font-weight: 700;
   box-shadow: var(--shadow-sm);
 }
+.git-sync-btn[disabled] { opacity: .78; cursor: progress; }
+.git-sync-working { display: none; }
+.git-sync-form[data-syncing="1"] .git-sync-label { display: none; }
+.git-sync-form[data-syncing="1"] .git-sync-working { display: inline; }
+.git-sync-indicator {
+  display: none;
+  align-items: center;
+  font-size: .74rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.git-sync-indicator.htmx-request { display: inline-flex; }
 .git-sync-btn.secondary {
   background: var(--bg-soft);
   color: var(--text);
@@ -726,6 +741,16 @@ button:focus-visible { outline: none; box-shadow: var(--ring); }
   font-size: .84rem;
   box-shadow: var(--shadow-sm);
   animation: toastIn .25s ease both, toastOut .4s ease 6s forwards;
+}
+.git-toast.success { border-left-color: var(--done); }
+.git-toast.error {
+  border-left-color: var(--blocked);
+  background: linear-gradient(180deg, #fff1ef, var(--card));
+}
+.git-toast-state {
+  flex: none;
+  font-size: .9rem;
+  font-weight: 800;
 }
 .git-toast-msg { flex: 1; }
 .git-toast-close {
@@ -1925,6 +1950,7 @@ html[data-theme="dark"] .ai-msg-error { background: #3a1a18; border-color: #6b2d
 
 /* ── Project panel row ───────────────────────────────────────── */
 .project-row { display: flex; align-items: stretch; gap: 0; position: relative; }
+.project-open-form { flex: 1; margin: 0; display: flex; }
 .project-open-btn { flex: 1; text-align: left; background: transparent; border: none; cursor: pointer; padding: 0; }
 .project-filter-link-form { margin: 0; display: flex; }
 .project-filter-link { display: flex; align-items: center; padding: 0 .8rem; font-size: .78rem; color: var(--accent); text-decoration: none; border-left: 1px solid var(--line); flex-shrink: 0; white-space: nowrap; }
