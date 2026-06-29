@@ -17,11 +17,15 @@
   "depends_on": [],
   "checklist": [
     {
-      "text": "Task 1",
+      "text": "Automation Script",
       "done": false
     },
     {
-      "text": "Task 2",
+      "text": "Secure Portal",
+      "done": false
+    },
+    {
+      "text": "Cascading Deletion",
       "done": false
     }
   ],

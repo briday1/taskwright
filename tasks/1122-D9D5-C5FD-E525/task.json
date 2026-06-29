@@ -1,0 +1,20 @@
+{
+  "id": "1122-D9D5-C5FD-E525",
+  "title": "New task",
+  "status": "backlog",
+  "priority": "normal",
+  "project_id": "",
+  "summary": "",
+  "description": "",
+  "tags": [],
+  "start_date": null,
+  "due_date": null,
+  "completed_date": null,
+  "percent_complete": 0,
+  "depends_on": [],
+  "checklist": [],
+  "notes": [],
+  "attachments": [],
+  "activity": [],
+  "extra": {}
+}

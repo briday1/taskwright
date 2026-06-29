@@ -1,0 +1,59 @@
+<div class="panel-scroll">
+  <div class="panel-heading sticky">
+    <div class="task-panel-title-row">
+      <button type="button" class="btn-link task-collapse-btn" data-panel-collapse title="Collapse details" aria-label="Collapse details">×</button>
+      <h2>{{ selected_project.name }}</h2>
+    </div>
+  </div>
+
+  <form hx-post="/projects/{{ selected_project.id }}/save" hx-target="#app-main" hx-swap="outerHTML" class="task-form" style="margin-top:.95rem">
+    <input type="hidden" name="f_view" value="{{ filters.view }}">
+    <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
+    <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
+
+    <label>
+      <span>Name</span>
+      <input name="name" value="{{ selected_project.name }}" required>
+    </label>
+
+    <div class="form-grid">
+      <label>
+        <span>Color</span>
+        <input type="color" name="color" value="{{ selected_project.color or '#2e6fd8' }}" class="ms-color-input">
+      </label>
+    </div>
+
+    <label>
+      <span>Description</span>
+      <textarea name="description" rows="3">{{ selected_project.description }}</textarea>
+    </label>
+
+    <button type="submit">Save Project</button>
+  </form>
+
+  <section class="subsection">
+    <h3>Filter</h3>
+    <form hx-get="/partials/main" hx-target="#app-main" hx-swap="outerHTML" class="inline-form">
+      <input type="hidden" name="view" value="projects">
+      <input type="hidden" name="project" value="{{ selected_project.id }}">
+      <input type="hidden" name="stale_days" value="{{ filters.stale_days }}">
+      {% if filters.show_closed %}<input type="hidden" name="show_closed" value="1">{% endif %}
+      {% if filters.hide_done %}<input type="hidden" name="hide_done" value="1">{% endif %}
+      {% if filters.date_from %}<input type="hidden" name="date_from" value="{{ filters.date_from }}">{% endif %}
+      {% if filters.date_to %}<input type="hidden" name="date_to" value="{{ filters.date_to }}">{% endif %}
+      {% if filters.q %}<input type="hidden" name="q" value="{{ filters.q }}">{% endif %}
+      <button type="submit">Show only this project</button>
+    </form>
+  </section>
+
+  <form action="/projects/{{ selected_project.id }}/delete" method="post"
+        onsubmit="return confirm('Delete project {{ selected_project.name }}? Tasks will not be deleted.')"
+        class="danger-zone">
+    <input type="hidden" name="f_view" value="{{ filters.view }}">
+    <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
+    <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
+    <button type="submit">Delete Project</button>
+  </form>
+
+  <p class="task-id-footer">Project ID: <span class="mono">{{ selected_project.id }}</span></p>
+</div>
