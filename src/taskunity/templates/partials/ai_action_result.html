@@ -1,0 +1,50 @@
+<div class="ai-msg ai-msg-assistant ai-msg-action-result">
+  <div class="ai-msg-content markdown">
+    <p><strong>{{ message }}</strong></p>
+    {% if details %}
+      <ul>
+        {% for item in details %}
+          <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% if preview_diffs %}
+      {% for d in preview_diffs %}
+        <div class="ai-diff-block">
+          <div class="ai-diff-title">Diff: {{ d.path }}</div>
+          <pre class="ai-diff-pre">{{ d.diff }}</pre>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+  {% if apply_url %}
+    <div class="ai-apply-actions">
+      <form hx-post="{{ apply_url }}" hx-target="#ai-messages" hx-swap="beforeend">
+        {% for k, v in apply_fields.items() %}
+          <input type="hidden" name="{{ k }}" value="{{ v | e }}">
+        {% endfor %}
+        <button type="submit" class="ai-apply-btn ai-apply-tasks">{{ apply_button_label or 'Apply' }}</button>
+      </form>
+      <form hx-post="/ai/decline" hx-target="#ai-messages" hx-swap="beforeend" hx-include="#ai-history">
+        <input type="hidden" name="decline_label" value="{{ apply_button_label or 'changes' }}">
+        <button type="submit" class="ai-apply-btn ai-apply-decline">Decline</button>
+      </form>
+    </div>
+  {% endif %}
+</div>
+<script>
+(function () {
+  {% if dispatch_apply is not defined or dispatch_apply %}
+  document.body.dispatchEvent(new CustomEvent('taskunity:ai-apply', {
+    bubbles: true,
+    detail: {
+      refreshTask: {{ refresh_task | tojson }},
+      refreshTaskPanelUrl: {{ refresh_task_panel_url | default('') | tojson }},
+      refreshContextUrl: {{ refresh_context_url | tojson }}
+    }
+  }));
+  {% endif %}
+  var msgs = document.getElementById('ai-messages');
+  if (msgs) msgs.scrollTop = msgs.scrollHeight;
+})();
+</script>

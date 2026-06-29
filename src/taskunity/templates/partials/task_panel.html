@@ -1,4 +1,4 @@
-<div class="panel-scroll">
+<div class="panel-scroll" data-ai-context-url="/ai/panel/task/{{ selected_task.id }}?view={{ filters.view }}&milestone={{ filters.milestone }}{% if filters.show_closed %}&show_closed=1{% endif %}&stale_days={{ filters.stale_days }}">
   <div class="panel-heading sticky">
     <div class="task-panel-title-row">
       <button type="button" class="btn-link task-collapse-btn" data-panel-collapse title="Collapse details" aria-label="Collapse details">×</button>
@@ -93,14 +93,6 @@
     </div>
     <div class="panel-actions-row">
       <button type="submit">Save Task</button>
-      {% if ai_enabled == '1' %}
-        <button type="button" class="btn-ai ask-ai-btn"
-                hx-get="/ai/panel/task/{{ selected_task.id }}?view={{ filters.view }}&milestone={{ filters.milestone }}{% if filters.show_closed %}&show_closed=1{% endif %}&stale_days={{ filters.stale_days }}"
-                hx-target="#ai-panel"
-                hx-swap="innerHTML"
-                data-open-ai-panel
-                title="Ask AI about this task">✦ Ask AI</button>
-      {% endif %}
     </div>
   </form>
 

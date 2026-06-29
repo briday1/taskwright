@@ -1,56 +1,5 @@
 <div class="ai-msg ai-msg-assistant" data-history="{{ history_json | e }}">
   <div class="ai-msg-content markdown">{{ reply_html | safe }}</div>
-
-  {% if has_tasks or has_checklist or has_note %}
-    <div class="ai-apply-actions">
-      <p class="ai-apply-label">Apply suggestions:</p>
-
-      {% if has_tasks %}
-        <form hx-post="/ai/apply/tasks/{{ entity_id if context_type == 'milestone' else 'none' }}"
-              hx-target="#app-main"
-              hx-swap="outerHTML">
-          <input type="hidden" name="tasks_json" value="{{ tasks_json | e }}">
-          <input type="hidden" name="f_view" value="{{ f_view }}">
-          <input type="hidden" name="f_milestone" value="{{ f_milestone }}">
-          <input type="hidden" name="f_show_closed" value="{{ f_show_closed }}">
-          <input type="hidden" name="f_stale_days" value="{{ f_stale_days }}">
-          <button type="submit" class="ai-apply-btn ai-apply-tasks">
-            ＋ Create suggested tasks
-          </button>
-        </form>
-      {% endif %}
-
-      {% if has_checklist %}
-        <form hx-post="/ai/apply/checklist/{{ entity_id }}"
-              hx-target="#app-main"
-              hx-swap="outerHTML">
-          <input type="hidden" name="checklist_json" value="{{ checklist_json | e }}">
-          <input type="hidden" name="f_view" value="{{ f_view }}">
-          <input type="hidden" name="f_milestone" value="{{ f_milestone }}">
-          <input type="hidden" name="f_show_closed" value="{{ f_show_closed }}">
-          <input type="hidden" name="f_stale_days" value="{{ f_stale_days }}">
-          <button type="submit" class="ai-apply-btn ai-apply-checklist">
-            ✓ Append checklist items
-          </button>
-        </form>
-      {% endif %}
-
-      {% if has_note %}
-        <form hx-post="/ai/apply/note/{{ entity_id }}"
-              hx-target="#app-main"
-              hx-swap="outerHTML">
-          <input type="hidden" name="note_text" value="{{ note_text | e }}">
-          <input type="hidden" name="f_view" value="{{ f_view }}">
-          <input type="hidden" name="f_milestone" value="{{ f_milestone }}">
-          <input type="hidden" name="f_show_closed" value="{{ f_show_closed }}">
-          <input type="hidden" name="f_stale_days" value="{{ f_stale_days }}">
-          <button type="submit" class="ai-apply-btn ai-apply-note">
-            📝 Save as note
-          </button>
-        </form>
-      {% endif %}
-    </div>
-  {% endif %}
 </div>
 <script>
 (function () {

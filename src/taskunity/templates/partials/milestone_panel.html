@@ -1,4 +1,4 @@
-<div class="panel-scroll">
+<div class="panel-scroll" data-ai-context-url="/ai/panel/milestone/{{ selected_milestone.id }}?view={{ filters.view }}{% if filters.show_closed %}&show_closed=1{% endif %}&stale_days={{ filters.stale_days }}">
   <div class="panel-heading sticky">
     <div>
       <span class="ms-status {{ selected_milestone.status }}">{{ selected_milestone.status }}</span>
@@ -33,14 +33,6 @@
     </div>
     <div class="panel-actions-row">
       <button type="submit">Save Milestone</button>
-      {% if ai_enabled == '1' %}
-        <button type="button" class="btn-ai ask-ai-btn"
-                hx-get="/ai/panel/milestone/{{ selected_milestone.id }}?view={{ filters.view }}{% if filters.show_closed %}&show_closed=1{% endif %}&stale_days={{ filters.stale_days }}"
-                hx-target="#ai-panel"
-                hx-swap="innerHTML"
-                data-open-ai-panel
-                title="Ask AI about this milestone">✦ Ask AI</button>
-      {% endif %}
     </div>
   </form>
 

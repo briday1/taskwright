@@ -32,11 +32,17 @@
             </div>
             {% if p.description %}<p class="mc-summary clamp-1">{{ p.description }}</p>{% endif %}
           </button>
-          <a
-            href="/?view=list&project={{ p.id|urlencode }}{% if filters.date_from %}&date_from={{ filters.date_from|urlencode }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to|urlencode }}{% endif %}{% if filters.q %}&q={{ filters.q|urlencode }}{% endif %}&stale_days={{ filters.stale_days }}"
-            class="project-filter-link"
-            title="View tasks for {{ p.name }}"
-          >View tasks →</a>
+          <form hx-get="/partials/main" hx-target="#app-main" hx-swap="outerHTML" class="project-filter-link-form">
+            <input type="hidden" name="view" value="projects">
+            <input type="hidden" name="project" value="{{ p.id }}">
+            <input type="hidden" name="stale_days" value="{{ filters.stale_days }}">
+            {% if filters.show_closed %}<input type="hidden" name="show_closed" value="1">{% endif %}
+            {% if filters.hide_done %}<input type="hidden" name="hide_done" value="1">{% endif %}
+            {% if filters.date_from %}<input type="hidden" name="date_from" value="{{ filters.date_from }}">{% endif %}
+            {% if filters.date_to %}<input type="hidden" name="date_to" value="{{ filters.date_to }}">{% endif %}
+            {% if filters.q %}<input type="hidden" name="q" value="{{ filters.q }}">{% endif %}
+            <button type="submit" class="project-filter-link" title="Filter by {{ p.name }}">Filter</button>
+          </form>
         </div>
       {% endfor %}
     </div>

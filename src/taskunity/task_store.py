@@ -294,6 +294,8 @@ def default_workspace_config(workspace: Path) -> dict[str, str]:
         "ai_base_url": "",
         "ai_api_key": "",
         "ai_model": "",
+        "ai_chat_path": "",
+        "ai_models_path": "",
         "ai_timeout_seconds": "30",
         "ai_max_tokens": "2048",
         "ai_temperature": "0.7",
@@ -301,7 +303,7 @@ def default_workspace_config(workspace: Path) -> dict[str, str]:
 
 
 # Keys that may intentionally be empty string (should not fall back to default when blank).
-_AI_PASSTHROUGH_KEYS = {"ai_base_url", "ai_api_key", "ai_model"}
+_AI_PASSTHROUGH_KEYS = {"ai_base_url", "ai_api_key", "ai_model", "ai_chat_path", "ai_models_path"}
 
 
 def load_workspace_config(workspace: Path) -> dict[str, str]:
@@ -769,6 +771,19 @@ def git_sync(workspace: Path) -> dict[str, Any]:
     if not status["tracked"]:
         result["message"] = status["message"] or "This workspace is not inside a git repository."
         return result
+
+    # If git-lfs is available, configure it quietly and continue with normal git flow.
+    # This avoids separate UI flows while still using LFS automatically when possible.
+    if git_lfs_available(workspace):
+        try:
+            _git(workspace, "lfs", "install", "--local")
+            _git(workspace, "lfs", "track", "assets/**")
+            _git(workspace, "add", ".gitattributes")
+        except (OSError, subprocess.SubprocessError):
+            pass
+
+    # Refresh status in case .gitattributes was created/updated by LFS tracking.
+    status = git_status(workspace)
     try:
         branch = status["branch"] or _git(workspace, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip() or "main"
 
