@@ -706,18 +706,20 @@ def git_status(workspace: Path) -> dict[str, Any]:
         info["repo_root"] = Path(top_level.stdout.strip()).resolve()
         info["tracked"] = True
         info["branch"] = _git(workspace, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
-        upstream = _git(workspace, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
-        if upstream.returncode == 0:
-            info["upstream"] = upstream.stdout.strip()
-            counts = _git(workspace, "rev-list", "--left-right", "--count", "@{u}...HEAD")
-            if counts.returncode == 0:
-                parts = counts.stdout.split()
-                if len(parts) == 2:
-                    info["behind"] = int(parts[0])
-                    info["ahead"] = int(parts[1])
         status = _git(workspace, "status", "--porcelain", "--", ".")
         if status.returncode == 0:
             info["dirty"] = len([line for line in status.stdout.splitlines() if line.strip()])
+        # Only show ahead/behind if workspace has changes; otherwise workspace is synced
+        if info["dirty"] > 0:
+            upstream = _git(workspace, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+            if upstream.returncode == 0:
+                info["upstream"] = upstream.stdout.strip()
+                counts = _git(workspace, "rev-list", "--left-right", "--count", "@{u}...HEAD")
+                if counts.returncode == 0:
+                    parts = counts.stdout.split()
+                    if len(parts) == 2:
+                        info["behind"] = int(parts[0])
+                        info["ahead"] = int(parts[1])
     except (OSError, subprocess.SubprocessError) as exc:
         info["message"] = str(exc)
     return info
