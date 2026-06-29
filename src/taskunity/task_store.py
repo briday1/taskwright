@@ -709,17 +709,19 @@ def git_status(workspace: Path) -> dict[str, Any]:
         status = _git(workspace, "status", "--porcelain", "--", ".")
         if status.returncode == 0:
             info["dirty"] = len([line for line in status.stdout.splitlines() if line.strip()])
-        # Only show ahead/behind if workspace has changes; otherwise workspace is synced
-        if info["dirty"] > 0:
-            upstream = _git(workspace, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
-            if upstream.returncode == 0:
-                info["upstream"] = upstream.stdout.strip()
-                counts = _git(workspace, "rev-list", "--left-right", "--count", "@{u}...HEAD")
-                if counts.returncode == 0:
-                    parts = counts.stdout.split()
-                    if len(parts) == 2:
-                        info["behind"] = int(parts[0])
-                        info["ahead"] = int(parts[1])
+
+        upstream = _git(workspace, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+        if upstream.returncode == 0:
+            info["upstream"] = upstream.stdout.strip()
+
+        # Ahead/behind is repo-wide by nature; only show it when workspace has local changes.
+        if info["dirty"] > 0 and info["upstream"]:
+            counts = _git(workspace, "rev-list", "--left-right", "--count", "@{u}...HEAD")
+            if counts.returncode == 0:
+                parts = counts.stdout.split()
+                if len(parts) == 2:
+                    info["behind"] = int(parts[0])
+                    info["ahead"] = int(parts[1])
     except (OSError, subprocess.SubprocessError) as exc:
         info["message"] = str(exc)
     return info
