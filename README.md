@@ -10,8 +10,7 @@ burndown charts, and an editable task side panel.
 
 ## Screenshots
 
-PyPI renders images reliably when they use absolute GitHub URLs. The screenshots below include
-both light mode and dark mode.
+PyPI renders images reliably when they use absolute GitHub URLs.
 
 ### Light mode
 
@@ -30,20 +29,6 @@ both light mode and dark mode.
 | Task Activity Log | Settings (Theme) |
 |-------------------|------------------|
 | ![Task Panel (Light)](https://raw.githubusercontent.com/briday1/taskunity/HEAD/docs/_static/screenshots/task-panel.png) | ![Settings Popup (Light)](https://raw.githubusercontent.com/briday1/taskunity/HEAD/docs/_static/screenshots/settings-popup.png) |
-
-### Dark mode
-
-| Dashboard | Task Board |
-|-----------|------------|
-| ![Dashboard (Dark)](https://raw.githubusercontent.com/briday1/taskunity/HEAD/docs/_static/screenshots/dark-dashboard.png) | ![Task Board (Dark)](https://raw.githubusercontent.com/briday1/taskunity/HEAD/docs/_static/screenshots/dark-task-board.png) |
-
-| Gantt Timeline | Calendar |
-|----------------|----------|
-| ![Gantt (Dark)](https://raw.githubusercontent.com/briday1/taskunity/HEAD/docs/_static/screenshots/dark-gantt.png) | ![Calendar (Dark)](https://raw.githubusercontent.com/briday1/taskunity/HEAD/docs/_static/screenshots/dark-calendar.png) |
-
-| Milestones | Task Panel |
-|------------|------------|
-| ![Milestones (Dark)](https://raw.githubusercontent.com/briday1/taskunity/HEAD/docs/_static/screenshots/dark-milestones.png) | ![Task Panel (Dark)](https://raw.githubusercontent.com/briday1/taskunity/HEAD/docs/_static/screenshots/dark-task-panel.png) |
 
 ## Why Taskunity
 
