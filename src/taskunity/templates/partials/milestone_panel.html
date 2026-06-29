@@ -9,7 +9,7 @@
     </div>
   </div>
 
-  <form hx-post="/milestones/{{ selected_milestone.id }}/save" hx-target="#app-main" hx-swap="outerHTML" class="task-form">
+  <form hx-post="/milestones/{{ selected_milestone.id }}/save" hx-target="#app-main" hx-swap="outerHTML" class="task-form" data-milestone-edit-form>
     <input type="hidden" name="f_view" value="{{ filters.view }}">
     <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
     <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
@@ -24,26 +24,7 @@
         <input type="color" name="color" value="{{ selected_milestone.color or '#3567e0' }}" class="ms-color-input">
       </label>
     </div>
-    <label class="field-label">Projects <span class="hint">A milestone can span multiple projects.</span></label>
-    <div class="ms-projects" data-ms-projects>
-      <div class="ms-proj-chips">
-        {% for name in selected_milestone.projects %}
-          <span class="ms-proj-chip" data-name="{{ name }}">
-            <span class="swatch" style="background: {{ project_colors.get(name, '#2e6fd8') }}"></span>{{ name }}
-            <input type="hidden" name="projects" value="{{ name }}">
-            <button type="button" class="ms-proj-x" data-ms-proj-remove aria-label="Remove project">×</button>
-          </span>
-        {% endfor %}
-      </div>
-      {% if projects %}
-        <select class="ms-proj-select" data-ms-proj-select>
-          <option value="">Add a project…</option>
-          {% for p in projects if p.name not in selected_milestone.projects %}<option value="{{ p.name }}" data-color="{{ p.color }}">{{ p.name }}</option>{% endfor %}
-        </select>
-      {% else %}
-        <span class="muted">No projects yet. Create one in the Projects view.</span>
-      {% endif %}
-    </div>
+    <p class="muted">Projects are inferred automatically from tasks in this milestone.</p>
     <label>Summary<textarea name="summary" rows="2">{{ selected_milestone.summary }}</textarea></label>
     <label>Description<textarea name="description" rows="5">{{ selected_milestone.description }}</textarea></label>
     <div class="form-grid">
@@ -120,7 +101,7 @@
         <p class="muted">No notes yet. Add your first one below.</p>
       {% endfor %}
     </div>
-    <form hx-post="/milestones/{{ selected_milestone.id }}/note" hx-target="#task-panel" hx-swap="innerHTML" class="inline-form note-add">
+    <form hx-post="/milestones/{{ selected_milestone.id }}/note" hx-target="#task-panel" hx-swap="innerHTML" class="inline-form note-add" data-save-draft-from="milestone">
       <input type="hidden" name="f_view" value="{{ filters.view }}">
       <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
       <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
@@ -153,7 +134,7 @@
         <li class="muted">No attachments yet.</li>
       {% endfor %}
     </ul>
-    <form hx-post="/milestones/{{ selected_milestone.id }}/attachment" hx-target="#task-panel" hx-swap="innerHTML" enctype="multipart/form-data" class="attachment-form">
+    <form hx-post="/milestones/{{ selected_milestone.id }}/attachment" hx-target="#task-panel" hx-swap="innerHTML" enctype="multipart/form-data" class="attachment-form" data-save-draft-from="milestone">
       <input type="hidden" name="f_view" value="{{ filters.view }}">
       <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
       <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">

@@ -1,0 +1,28 @@
+{
+  "id": "D6A8-B51E-2F3A-35A2",
+  "title": "Disaster recovery runbook",
+  "status": "backlog",
+  "priority": "normal",
+  "project_id": "P-074A-6ECA-EEB7-B049",
+  "summary": "Documented, tested DR procedure.",
+  "description": "Cross-region backups, restore drills, and an RTO/RPO target of 1h/15m.",
+  "tags": [
+    "infra",
+    "reliability"
+  ],
+  "start_date": "2026-08-10",
+  "due_date": "2026-09-15",
+  "completed_date": null,
+  "percent_complete": 0,
+  "depends_on": [],
+  "checklist": [],
+  "notes": [
+    {
+      "created_at": "2026-06-25T10:00:00",
+      "body": "Drafting the runbook; first restore drill scheduled for July."
+    }
+  ],
+  "attachments": [],
+  "activity": [],
+  "extra": {}
+}

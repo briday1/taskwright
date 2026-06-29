@@ -50,6 +50,7 @@ from .task_store import (
     load_task,
     project_colors,
     register_project,
+    normalize_task_project_refs,
     remove_task_from_milestone,
     save_milestone,
     save_task,
@@ -218,6 +219,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
 
     app.mount("/static", StaticFiles(directory=str(PACKAGE_DIR / "static")), name="static")
     app.mount("/assets", StaticFiles(directory=str(workspace / "assets")), name="assets")
+    app.mount("/task-files", StaticFiles(directory=str(workspace / "tasks")), name="task-files")
 
     VIEWS = {"list", "board", "gantt", "calendar", "projects", "milestones"}
     STALE_CLOSED_DAYS = 30
@@ -258,7 +260,8 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
     def build_query(
         projects: list[str], date_from: str, date_to: str, q: str, view: str = "", sort: str = "",
         milestone: str = "", show_closed: bool = False, stale_days: int = STALE_CLOSED_DAYS,
-        calendar_month: int | None = None, calendar_year: int | None = None,
+        calendar_month: int | None = None, calendar_year: int | None = None, hide_done: bool = False,
+        hide_old: bool | None = None, sort_dir: str = "",
     ) -> str:
         params: list[tuple[str, str]] = [("project", p) for p in projects if p]
         if date_from:
@@ -271,8 +274,16 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
             params.append(("milestone", milestone))
         if sort and sort != "priority":
             params.append(("sort", sort))
-        if show_closed:
+            if sort_dir in {"asc", "desc"}:
+                params.append(("sort_dir", sort_dir))
+        if hide_old is None:
+            hide_old = not show_closed
+        if hide_old:
+            params.append(("hide_old", "1"))
+        elif show_closed:
             params.append(("show_closed", "1"))
+        if hide_done:
+            params.append(("hide_done", "1"))
         if stale_days != STALE_CLOSED_DAYS:
             params.append(("stale_days", str(stale_days)))
         if calendar_month is not None:
@@ -292,9 +303,12 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         date_to: str = "",
         q: str = "",
         sort: str = "priority",
-        view: str = "board",
+        sort_dir: str = "",
+        view: str = "list",
         milestone: str = "",
         show_closed: bool = False,
+        hide_old: bool | None = None,
+        hide_done: bool = False,
         stale_days: int = STALE_CLOSED_DAYS,
         calendar_month: int | None = None,
         calendar_year: int | None = None,
@@ -303,8 +317,26 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         projects = [p for p in (projects or []) if p]
         q = (q or "").strip()
         sort = sort if sort in SORTS else "priority"
-        view = view if view in VIEWS else "board"
         query_params = request.query_params
+        default_sort_dirs = {
+            "priority": "asc",
+            "due_date": "asc",
+            "title": "asc",
+            "status": "asc",
+            "percent_complete": "desc",
+            "project": "asc",
+        }
+        sort_dir = (sort_dir or query_params.get("sort_dir") or "").strip().lower()
+        if sort_dir not in {"asc", "desc"}:
+            sort_dir = default_sort_dirs.get(sort, "asc")
+        view = view if view in VIEWS else "list"
+        if hide_old is None:
+            if query_params.get("hide_old") is not None:
+                hide_old = parse_toggle(query_params.get("hide_old"))
+            else:
+                hide_old = not show_closed
+        show_closed = not bool(hide_old)
+        hide_done = hide_done or parse_toggle(query_params.get("hide_done"))
         today = date.today()
         focus_month = parse_calendar_month(calendar_month or query_params.get("calendar_month")) or today.month
         focus_year = parse_calendar_year(calendar_year or query_params.get("calendar_year")) or today.year
@@ -317,7 +349,28 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         year_next_month = focus_month
         year_next_year = focus_year + 1
         config = ui_config()
+        normalize_task_project_refs(workspace)
+        all_projects = load_all_projects(workspace)
+        project_name_by_id = {p.id: p.name for p in all_projects if p.id}
+        project_by_name = {p.name: p for p in all_projects}
+        resolved_projects: list[str] = []
+        for p in projects:
+            if p in project_name_by_id:
+                resolved_projects.append(p)
+                continue
+            legacy = project_by_name.get(p)
+            if legacy and legacy.id:
+                resolved_projects.append(legacy.id)
+                continue
+            resolved_projects.append(p)
+        projects = resolved_projects
+
         all_tasks = load_all_tasks(workspace)
+        for task in all_tasks:
+            if task.project_id and task.project_id in project_name_by_id:
+                task.project = project_name_by_id[task.project_id]
+        if selected_task is not None and selected_task.project_id and selected_task.project_id in project_name_by_id:
+            selected_task.project = project_name_by_id[selected_task.project_id]
         milestones = load_all_milestones(workspace)
         tasks_by_id = {t.id: t for t in all_tasks}
         panel_task_id = (selected_task.id if selected_task else (request.query_params.get("panel_task") or "").strip())
@@ -340,12 +393,30 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
             else:
                 milestone = ""
 
-        filtered = sort_tasks(filter_tasks(candidate_tasks, projects, date_from, date_to, q), sort)
+        filtered = sort_tasks(filter_tasks(candidate_tasks, projects, date_from, date_to, q), sort, sort_dir)
+        if hide_done:
+            filtered = [t for t in filtered if t.status != "done"]
         hidden_closed_count = 0
-        if not show_closed:
+        if hide_old:
             filtered, hidden_closed_count = hide_stale_closed_tasks(filtered, stale_days)
-        all_projects = load_all_projects(workspace)
         colors = project_colors(all_projects, all_tasks)
+        project_rollups: dict[str, dict[str, int]] = {}
+        for project in all_projects:
+            rows = [
+                t
+                for t in all_tasks
+                if (project.id and t.project_id == project.id) or ((not t.project_id) and t.project == project.name)
+            ]
+            total = len(rows)
+            done = sum(1 for t in rows if t.status == "done")
+            working = sum(1 for t in rows if t.status == "working")
+            progress = round(sum(t.percent_complete for t in rows) / total) if total else 0
+            project_rollups[project.id] = {
+                "total": total,
+                "done": done,
+                "working": working,
+                "progress": progress,
+            }
 
         pills = []
         if selected_milestone is not None:
@@ -353,16 +424,17 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
                 {
                     "label": f"Milestone: {selected_milestone.title}",
                     "color": "",
-                    "remove": build_query(projects, date_from, date_to, q, view, sort, show_closed=show_closed, stale_days=stale_days),
+                    "remove": build_query(projects, date_from, date_to, q, view, sort, show_closed=show_closed, stale_days=stale_days, hide_done=hide_done, hide_old=hide_old, sort_dir=sort_dir),
                 }
             )
         for p in projects:
+            project_label = project_name_by_id.get(p, p)
             others = [x for x in projects if x != p]
             pills.append(
                 {
-                    "label": f"Project: {p}",
+                    "label": f"Project: {project_label}",
                     "color": colors.get(p, ""),
-                    "remove": build_query(others, date_from, date_to, q, view, sort, milestone, show_closed, stale_days),
+                    "remove": build_query(others, date_from, date_to, q, view, sort, milestone, show_closed, stale_days, hide_done=hide_done, hide_old=hide_old, sort_dir=sort_dir),
                 }
             )
         if date_from:
@@ -370,7 +442,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
                 {
                     "label": f"From {date_from}",
                     "color": "",
-                    "remove": build_query(projects, "", date_to, q, view, sort, milestone, show_closed, stale_days),
+                    "remove": build_query(projects, "", date_to, q, view, sort, milestone, show_closed, stale_days, hide_done=hide_done, hide_old=hide_old, sort_dir=sort_dir),
                 }
             )
         if date_to:
@@ -378,7 +450,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
                 {
                     "label": f"To {date_to}",
                     "color": "",
-                    "remove": build_query(projects, date_from, "", q, view, sort, milestone, show_closed, stale_days),
+                    "remove": build_query(projects, date_from, "", q, view, sort, milestone, show_closed, stale_days, hide_done=hide_done, hide_old=hide_old, sort_dir=sort_dir),
                 }
             )
         if q:
@@ -386,16 +458,25 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
                 {
                     "label": f'Search: "{q}"',
                     "color": "",
-                    "remove": build_query(projects, date_from, date_to, "", view, sort, milestone, show_closed, stale_days),
+                    "remove": build_query(projects, date_from, date_to, "", view, sort, milestone, show_closed, stale_days, hide_done=hide_done, hide_old=hide_old, sort_dir=sort_dir),
                 }
             )
 
-        if show_closed:
+        if hide_old:
             pills.append(
                 {
-                    "label": f"Show old stuff ({stale_days}d+)",
+                    "label": f"Hide old stuff ({stale_days}d+)",
                     "color": "",
-                    "remove": build_query(projects, date_from, date_to, q, view, sort, milestone, False, stale_days, focus_month, focus_year),
+                    "remove": build_query(projects, date_from, date_to, q, view, sort, milestone, show_closed=True, stale_days=stale_days, calendar_month=focus_month, calendar_year=focus_year, hide_done=hide_done, hide_old=False, sort_dir=sort_dir),
+                }
+            )
+
+        if hide_done:
+            pills.append(
+                {
+                    "label": "Hide done",
+                    "color": "",
+                    "remove": build_query(projects, date_from, date_to, q, view, sort, milestone, show_closed, stale_days, focus_month, focus_year, hide_done=False, hide_old=hide_old, sort_dir=sort_dir),
                 }
             )
 
@@ -412,7 +493,9 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
             "milestone_rollups": milestone_rollups,
             "workspace": workspace,
             "projects": all_projects,
+            "project_rollups": project_rollups,
             "project_colors": colors,
+            "project_name_by_id": project_name_by_id,
             "sorts": SORTS,
             "calendar": build_calendar(filtered, date_from, date_to, focus_month, focus_year),
             "git": git_status(workspace),
@@ -427,7 +510,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
                     "project": t.project,
                     "due_date": t.due_date or "",
                 }
-                for t in sort_tasks(all_tasks, "title")
+                for t in sort_tasks(all_tasks, "title", "asc")
             ],
             "task_titles": {t.id: t.title for t in all_tasks},
             "filters": {
@@ -436,22 +519,26 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
                 "date_to": date_to,
                 "q": q,
                 "sort": sort,
+                "sort_dir": sort_dir,
                 "view": view,
                 "milestone": milestone,
                 "stale_days": stale_days,
                 "calendar_month": focus_month,
                 "calendar_year": focus_year,
-                "query": build_query(projects, date_from, date_to, q, "", sort, milestone, show_closed, stale_days, focus_month, focus_year),
-                "query_no_sort": build_query(projects, date_from, date_to, q, "", "", milestone, show_closed, stale_days, focus_month, focus_year),
-                "calendar_query": build_query(projects, date_from, date_to, q, "calendar", sort, milestone, show_closed, stale_days, focus_month, focus_year),
-                "calendar_prev_query": build_query(projects, date_from, date_to, q, "calendar", sort, milestone, show_closed, stale_days, prev_month, prev_year),
-                "calendar_next_query": build_query(projects, date_from, date_to, q, "calendar", sort, milestone, show_closed, stale_days, next_month, next_year),
-                "calendar_year_prev_query": build_query(projects, date_from, date_to, q, "calendar", sort, milestone, show_closed, stale_days, year_prev_month, year_prev_year),
-                "calendar_year_next_query": build_query(projects, date_from, date_to, q, "calendar", sort, milestone, show_closed, stale_days, year_next_month, year_next_year),
+                "query": build_query(projects, date_from, date_to, q, "", sort, milestone, show_closed, stale_days, focus_month, focus_year, hide_done, hide_old=hide_old, sort_dir=sort_dir),
+                "query_no_sort": build_query(projects, date_from, date_to, q, "", "", milestone, show_closed, stale_days, focus_month, focus_year, hide_done, hide_old=hide_old),
+                "calendar_query": build_query(projects, date_from, date_to, q, "calendar", sort, milestone, show_closed, stale_days, focus_month, focus_year, hide_done, hide_old=hide_old, sort_dir=sort_dir),
+                "calendar_prev_query": build_query(projects, date_from, date_to, q, "calendar", sort, milestone, show_closed, stale_days, prev_month, prev_year, hide_done, hide_old=hide_old, sort_dir=sort_dir),
+                "calendar_next_query": build_query(projects, date_from, date_to, q, "calendar", sort, milestone, show_closed, stale_days, next_month, next_year, hide_done, hide_old=hide_old, sort_dir=sort_dir),
+                "calendar_year_prev_query": build_query(projects, date_from, date_to, q, "calendar", sort, milestone, show_closed, stale_days, year_prev_month, year_prev_year, hide_done, hide_old=hide_old, sort_dir=sort_dir),
+                "calendar_year_next_query": build_query(projects, date_from, date_to, q, "calendar", sort, milestone, show_closed, stale_days, year_next_month, year_next_year, hide_done, hide_old=hide_old, sort_dir=sort_dir),
                 "panel_task": panel_task_id,
                 "show_closed": show_closed,
+                "hide_old": hide_old,
+                "hide_done": hide_done,
                 "hidden_closed_count": hidden_closed_count,
-                "toggle_closed_query": build_query(projects, date_from, date_to, q, view, sort, milestone, not show_closed, stale_days, focus_month, focus_year),
+                "toggle_closed_query": build_query(projects, date_from, date_to, q, view, sort, milestone, not show_closed, stale_days, focus_month, focus_year, hide_done, hide_old=not hide_old, sort_dir=sort_dir),
+                "sort_default_dirs": default_sort_dirs,
                 "pills": pills,
             },
         }
@@ -464,9 +551,12 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         date_to: str = "",
         q: str = "",
         sort: str = "priority",
-        view: str = "board",
+        sort_dir: str = "",
+        view: str = "list",
         milestone: str = "",
         show_closed: str = "",
+        hide_old: str = "",
+        hide_done: str = "",
         stale_days: str = "",
     ) -> HTMLResponse:
         return templates.TemplateResponse(
@@ -479,9 +569,12 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
                 date_to=date_to,
                 q=q,
                 sort=sort,
+                sort_dir=sort_dir,
                 view=view,
                 milestone=milestone,
                 show_closed=parse_toggle(show_closed),
+                hide_old=parse_toggle(hide_old),
+                hide_done=parse_toggle(hide_done),
                 stale_days=parse_stale_days(stale_days),
             ),
         )
@@ -494,9 +587,12 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         date_to: str = "",
         q: str = "",
         sort: str = "priority",
-        view: str = "board",
+        sort_dir: str = "",
+        view: str = "list",
         milestone: str = "",
         show_closed: str = "",
+        hide_old: str = "",
+        hide_done: str = "",
         stale_days: str = "",
     ) -> HTMLResponse:
         return templates.TemplateResponse(
@@ -509,9 +605,12 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
                 date_to=date_to,
                 q=q,
                 sort=sort,
+                sort_dir=sort_dir,
                 view=view,
                 milestone=milestone,
                 show_closed=parse_toggle(show_closed),
+                hide_old=parse_toggle(hide_old),
+                hide_done=parse_toggle(hide_done),
                 stale_days=parse_stale_days(stale_days),
             ),
         )
@@ -524,9 +623,11 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         date_from: str = "",
         date_to: str = "",
         q: str = "",
-        view: str = "board",
+        view: str = "list",
         milestone: str = "",
         show_closed: str = "",
+        hide_old: str = "",
+        hide_done: str = "",
         stale_days: str = "",
     ) -> HTMLResponse:
         task = load_task(workspace, task_id)
@@ -543,6 +644,8 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
                 view=view,
                 milestone=milestone,
                 show_closed=parse_toggle(show_closed),
+                hide_old=parse_toggle(hide_old),
+                hide_done=parse_toggle(hide_done),
                 stale_days=parse_stale_days(stale_days),
             ),
         )
@@ -555,9 +658,10 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         f_from: str = Form(""),
         f_to: str = Form(""),
         f_q: str = Form(""),
-        f_view: str = Form("board"),
+        f_view: str = Form("list"),
         f_milestone: str = Form(""),
         f_show_closed: str = Form(""),
+        f_hide_done: str = Form(""),
         f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
     ) -> HTMLResponse:
         task = create_task(workspace, title)
@@ -576,6 +680,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
                 view=f_view,
                 milestone=f_milestone,
                 show_closed=parse_toggle(f_show_closed),
+                hide_done=parse_toggle(f_hide_done),
                 stale_days=parse_stale_days(f_stale_days),
             ),
         )
@@ -601,9 +706,10 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         f_from: str = Form(""),
         f_to: str = Form(""),
         f_q: str = Form(""),
-        f_view: str = Form("board"),
+        f_view: str = Form("list"),
         f_milestone: str = Form(""),
         f_show_closed: str = Form(""),
+        f_hide_done: str = Form(""),
         f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
     ) -> HTMLResponse:
         task = load_task(workspace, task_id)
@@ -614,7 +720,19 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         priority_value = (priority or "").strip().lower()
         if priority_value in {"low", "normal", "high", "critical"}:
             task.priority = priority_value
-        task.project = project.strip()
+        project_value = (project or "").strip()
+        projects_all = load_all_projects(workspace)
+        by_id = {p.id: p for p in projects_all if p.id}
+        by_name = {p.name: p for p in projects_all}
+        selected_project = by_id.get(project_value) or by_name.get(project_value)
+        if selected_project is None and project_value:
+            selected_project = register_project(workspace, project_value)
+        if selected_project is not None:
+            task.project_id = selected_project.id
+            task.project = selected_project.name
+        else:
+            task.project_id = ""
+            task.project = ""
         task.summary = summary
         task.description = description
         task.tags = [x.strip() for x in tags.split(",") if x.strip()]
@@ -641,7 +759,8 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
             checklist.append(ChecklistItem(text=text, done=done))
         task.checklist = checklist
         save_task(workspace, task)
-        register_project(workspace, task.project)
+        if task.project:
+            register_project(workspace, task.project)
         return templates.TemplateResponse(
             request,
             "partials/main.html",
@@ -655,6 +774,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
                 view=f_view,
                 milestone=f_milestone,
                 show_closed=parse_toggle(f_show_closed),
+                hide_done=parse_toggle(f_hide_done),
                 stale_days=parse_stale_days(f_stale_days),
             ),
         )
@@ -669,12 +789,53 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         body: str = Form(""),
         attachment: UploadFile | None = File(None),
         description: str = Form(""),
-        f_view: str = Form("board"),
+        save_title: str | None = Form(None),
+        save_project: str | None = Form(None),
+        save_summary: str | None = Form(None),
+        save_task_description: str | None = Form(None),
+        save_tags: str | None = Form(None),
+        save_start_date: str | None = Form(None),
+        save_due_date: str | None = Form(None),
+        save_completed_date: str | None = Form(None),
+        save_depends_on: str | None = Form(None),
+        f_view: str = Form("list"),
         f_milestone: str = Form(""),
         f_show_closed: str = Form(""),
+        f_hide_done: str = Form(""),
         f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
     ) -> HTMLResponse:
         task = load_task(workspace, task_id)
+
+        if save_title is not None:
+            task.title = save_title
+        if save_project is not None:
+            project_value = save_project.strip()
+            projects_all = load_all_projects(workspace)
+            by_id = {p.id: p for p in projects_all if p.id}
+            by_name = {p.name: p for p in projects_all}
+            selected_project = by_id.get(project_value) or by_name.get(project_value)
+            if selected_project is None and project_value:
+                selected_project = register_project(workspace, project_value)
+            if selected_project is not None:
+                task.project_id = selected_project.id
+                task.project = selected_project.name
+            else:
+                task.project_id = ""
+                task.project = ""
+        if save_summary is not None:
+            task.summary = save_summary
+        if save_task_description is not None:
+            task.description = save_task_description
+        if save_tags is not None:
+            task.tags = [x.strip() for x in save_tags.split(",") if x.strip()]
+        if save_start_date is not None:
+            task.start_date = save_start_date or None
+        if save_due_date is not None:
+            task.due_date = save_due_date or None
+        if save_completed_date is not None:
+            task.completed_date = save_completed_date or None
+        if save_depends_on is not None:
+            task.depends_on = [x.strip() for x in save_depends_on.split(",") if x.strip()]
 
         progress_raw = str(progress_after or "").strip()
         if progress_raw:
@@ -718,6 +879,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
             task.activity.append(TaskActivityEvent(event_type="note", note_text=note_text))
 
         save_task(workspace, task)
+        register_project(workspace, task.project)
 
         if attachment and (attachment.filename or "").strip():
             task = add_task_activity_image(
@@ -738,6 +900,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
                 view=f_view,
                 milestone=f_milestone,
                 show_closed=parse_toggle(f_show_closed),
+                hide_done=parse_toggle(f_hide_done),
                 stale_days=parse_stale_days(f_stale_days),
             ),
         )
@@ -751,7 +914,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         f_from: str = Form(""),
         f_to: str = Form(""),
         f_q: str = Form(""),
-        f_view: str = Form("board"),
+        f_view: str = Form("list"),
         f_milestone: str = Form(""),
         f_show_closed: str = Form(""),
         f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
@@ -787,7 +950,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         f_from: str = Form(""),
         f_to: str = Form(""),
         f_q: str = Form(""),
-        f_view: str = Form("board"),
+        f_view: str = Form("list"),
         f_milestone: str = Form(""),
         f_show_closed: str = Form(""),
         f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
@@ -822,7 +985,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         f_from: str = Form(""),
         f_to: str = Form(""),
         f_q: str = Form(""),
-        f_view: str = Form("board"),
+        f_view: str = Form("list"),
         f_milestone: str = Form(""),
         f_show_closed: str = Form(""),
         f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
@@ -857,7 +1020,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         f_from: str = Form(""),
         f_to: str = Form(""),
         f_q: str = Form(""),
-        f_view: str = Form("board"),
+        f_view: str = Form("list"),
         f_milestone: str = Form(""),
         f_show_closed: str = Form(""),
         f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
@@ -1071,7 +1234,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         f_from: str = Form(""),
         f_to: str = Form(""),
         f_q: str = Form(""),
-        f_view: str = Form("board"),
+        f_view: str = Form("list"),
         f_milestone: str = Form(""),
         f_show_closed: str = Form(""),
         f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
@@ -1112,7 +1275,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         f_from: str = Form(""),
         f_to: str = Form(""),
         f_q: str = Form(""),
-        f_view: str = Form("board"),
+        f_view: str = Form("list"),
         f_milestone: str = Form(""),
         f_show_closed: str = Form(""),
         f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
@@ -1140,8 +1303,9 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         name: str = Form(...),
         description: str = Form(""),
         color: str = Form("#2e6fd8"),
+        project_id: str = Form(""),
     ) -> HTMLResponse:
-        upsert_project(workspace, name, description.strip(), color)
+        upsert_project(workspace, name, description.strip(), color, project_id=project_id)
         return templates.TemplateResponse(request, "partials/main.html", context(request, view="projects"))
 
     # --- Milestones ---------------------------------------------------------
@@ -1159,7 +1323,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
             "partials/main.html",
             context(
                 request,
-                view="board",
+                view="list",
                 milestone=milestone.id,
                 show_closed=parse_toggle(f_show_closed),
                 stale_days=parse_stale_days(f_stale_days),
@@ -1174,7 +1338,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         date_from: str = "",
         date_to: str = "",
         q: str = "",
-        view: str = "board",
+        view: str = "list",
         show_closed: str = "",
         stale_days: str = "",
     ) -> HTMLResponse:
@@ -1413,10 +1577,9 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         color: str = Form("#3567e0"),
         summary: str = Form(""),
         description: str = Form(""),
-        projects: list[str] = Form(default=[]),
         start_date: str = Form(""),
         target_date: str = Form(""),
-        f_view: str = Form("board"),
+        f_view: str = Form("list"),
         f_show_closed: str = Form(""),
         f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
     ) -> HTMLResponse:
@@ -1426,7 +1589,6 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         milestone.color = (color or "").strip() or "#3567e0"
         milestone.summary = summary
         milestone.description = description
-        milestone.projects = [p.strip() for p in projects if p.strip()]
         milestone.start_date = start_date or None
         milestone.target_date = target_date or None
         save_milestone(workspace, milestone)
@@ -1447,10 +1609,37 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         request: Request,
         milestone_id: str,
         body: str = Form(""),
-        f_view: str = Form("board"),
+        save_title: str | None = Form(None),
+        save_status: str | None = Form(None),
+        save_color: str | None = Form(None),
+        save_summary: str | None = Form(None),
+        save_description: str | None = Form(None),
+        save_projects: list[str] = Form(default=[]),
+        save_projects_present: str = Form(""),
+        save_start_date: str | None = Form(None),
+        save_target_date: str | None = Form(None),
+        f_view: str = Form("list"),
         f_show_closed: str = Form(""),
         f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
     ) -> HTMLResponse:
+        milestone = load_milestone(workspace, milestone_id)
+        if save_title is not None:
+            milestone.title = save_title
+        if save_status is not None:
+            milestone.status = save_status if save_status in {"planned", "active", "done"} else milestone.status
+        if save_color is not None:
+            milestone.color = (save_color or "").strip() or "#3567e0"
+        if save_summary is not None:
+            milestone.summary = save_summary
+        if save_description is not None:
+            milestone.description = save_description
+        if save_start_date is not None:
+            milestone.start_date = save_start_date or None
+        if save_target_date is not None:
+            milestone.target_date = save_target_date or None
+        if parse_toggle(save_projects_present):
+            milestone.projects = [p.strip() for p in save_projects if p.strip()]
+        save_milestone(workspace, milestone)
         add_milestone_note(workspace, milestone_id, body)
         return templates.TemplateResponse(
             request,
@@ -1470,10 +1659,37 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         milestone_id: str,
         attachment: UploadFile = File(...),
         description: str = Form(""),
-        f_view: str = Form("board"),
+        save_title: str | None = Form(None),
+        save_status: str | None = Form(None),
+        save_color: str | None = Form(None),
+        save_summary: str | None = Form(None),
+        save_description: str | None = Form(None),
+        save_projects: list[str] = Form(default=[]),
+        save_projects_present: str = Form(""),
+        save_start_date: str | None = Form(None),
+        save_target_date: str | None = Form(None),
+        f_view: str = Form("list"),
         f_show_closed: str = Form(""),
         f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
     ) -> HTMLResponse:
+        milestone = load_milestone(workspace, milestone_id)
+        if save_title is not None:
+            milestone.title = save_title
+        if save_status is not None:
+            milestone.status = save_status if save_status in {"planned", "active", "done"} else milestone.status
+        if save_color is not None:
+            milestone.color = (save_color or "").strip() or "#3567e0"
+        if save_summary is not None:
+            milestone.summary = save_summary
+        if save_description is not None:
+            milestone.description = save_description
+        if save_start_date is not None:
+            milestone.start_date = save_start_date or None
+        if save_target_date is not None:
+            milestone.target_date = save_target_date or None
+        if parse_toggle(save_projects_present):
+            milestone.projects = [p.strip() for p in save_projects if p.strip()]
+        save_milestone(workspace, milestone)
         add_milestone_attachment(
             workspace,
             milestone_id,
@@ -1499,7 +1715,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         request: Request,
         milestone_id: str,
         title: str = Form("New task"),
-        f_view: str = Form("board"),
+        f_view: str = Form("list"),
         f_show_closed: str = Form(""),
         f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
     ) -> HTMLResponse:
@@ -1523,7 +1739,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         request: Request,
         milestone_id: str,
         task_id: str,
-        f_view: str = "board",
+        f_view: str = "list",
         f_show_closed: str = "",
         f_stale_days: str = "",
     ) -> HTMLResponse:
@@ -1545,7 +1761,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         request: Request,
         milestone_id: str,
         task_id: str,
-        f_view: str = "board",
+        f_view: str = "list",
         f_show_closed: str = "",
         f_stale_days: str = "",
     ) -> HTMLResponse:
@@ -1574,8 +1790,9 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         f_from: str = Form(""),
         f_to: str = Form(""),
         f_q: str = Form(""),
-        f_view: str = Form("board"),
+        f_view: str = Form("list"),
         f_sort: str = Form("priority"),
+        f_sort_dir: str = Form(""),
         f_milestone: str = Form(""),
         f_show_closed: str = Form(""),
         f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
@@ -1591,6 +1808,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
                 date_to=f_to,
                 q=f_q,
                 sort=f_sort,
+                sort_dir=f_sort_dir,
                 view=f_view,
                 milestone=f_milestone,
                 show_closed=parse_toggle(f_show_closed),
@@ -1606,8 +1824,9 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         f_from: str = Form(""),
         f_to: str = Form(""),
         f_q: str = Form(""),
-        f_view: str = Form("board"),
+        f_view: str = Form("list"),
         f_sort: str = Form("priority"),
+        f_sort_dir: str = Form(""),
         f_milestone: str = Form(""),
         f_show_closed: str = Form(""),
         f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
@@ -1625,6 +1844,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
                 date_to=f_to,
                 q=f_q,
                 sort=f_sort,
+                sort_dir=f_sort_dir,
                 view=f_view,
                 milestone=f_milestone,
                 show_closed=parse_toggle(f_show_closed),
@@ -1644,7 +1864,13 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         show_closed: str = "",
         stale_days: str = "",
     ) -> Response:
+        normalize_task_project_refs(workspace)
+        projects_all = load_all_projects(workspace)
+        project_name_by_id = {p.id: p.name for p in projects_all if p.id}
         tasks = filter_tasks(load_all_tasks(workspace), project, date_from, date_to, q)
+        for task in tasks:
+            if task.project_id and task.project_id in project_name_by_id:
+                task.project = project_name_by_id[task.project_id]
         if not parse_toggle(show_closed):
             tasks, _ = hide_stale_closed_tasks(tasks, parse_stale_days(stale_days))
         buffer = io.StringIO()
@@ -1695,10 +1921,15 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         show_closed: str = "",
         stale_days: str = "",
     ) -> Response:
+        normalize_task_project_refs(workspace)
         tasks = filter_tasks(load_all_tasks(workspace), project, date_from, date_to, q)
         if not parse_toggle(show_closed):
             tasks, _ = hide_stale_closed_tasks(tasks, parse_stale_days(stale_days))
         projects = load_all_projects(workspace)
+        project_name_by_id = {p.id: p.name for p in projects if p.id}
+        for task in tasks:
+            if task.project_id and task.project_id in project_name_by_id:
+                task.project = project_name_by_id[task.project_id]
         ordered_project_names = [p.name for p in available_projects(projects, tasks)]
         config = ui_config()
         data = tasks_to_jsonantt(

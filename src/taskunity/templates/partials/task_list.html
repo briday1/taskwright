@@ -7,23 +7,29 @@
     <table class="task-table">
       <thead>
         <tr>
+          {% set title_next = 'desc' if filters.sort == 'title' and filters.sort_dir == 'asc' else 'asc' %}
+          {% set project_next = 'desc' if filters.sort == 'project' and filters.sort_dir == 'asc' else 'asc' %}
+          {% set status_next = 'desc' if filters.sort == 'status' and filters.sort_dir == 'asc' else 'asc' %}
+          {% set priority_next = 'desc' if filters.sort == 'priority' and filters.sort_dir == 'asc' else 'asc' %}
+          {% set due_next = 'desc' if filters.sort == 'due_date' and filters.sort_dir == 'asc' else 'asc' %}
+          {% set progress_next = 'desc' if filters.sort == 'percent_complete' and filters.sort_dir == 'asc' else 'asc' %}
           <th>
-            <button class="table-sort{% if filters.sort == 'title' %} active{% endif %}" hx-get="/partials/main?view=list&sort=title{% if filters.query_no_sort %}&{{ filters.query_no_sort }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Title</button>
+            <button class="table-sort{% if filters.sort == 'title' %} active{% endif %}" hx-get="/partials/main?view=list&sort=title&sort_dir={{ title_next }}{% if filters.query_no_sort %}&{{ filters.query_no_sort }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Title</button>
           </th>
           <th>
-            <button class="table-sort{% if filters.sort == 'project' %} active{% endif %}" hx-get="/partials/main?view=list&sort=project{% if filters.query_no_sort %}&{{ filters.query_no_sort }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Project</button>
+            <button class="table-sort{% if filters.sort == 'project' %} active{% endif %}" hx-get="/partials/main?view=list&sort=project&sort_dir={{ project_next }}{% if filters.query_no_sort %}&{{ filters.query_no_sort }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Project</button>
           </th>
           <th>
-            <button class="table-sort{% if filters.sort == 'status' %} active{% endif %}" hx-get="/partials/main?view=list&sort=status{% if filters.query_no_sort %}&{{ filters.query_no_sort }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Status</button>
+            <button class="table-sort{% if filters.sort == 'status' %} active{% endif %}" hx-get="/partials/main?view=list&sort=status&sort_dir={{ status_next }}{% if filters.query_no_sort %}&{{ filters.query_no_sort }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Status</button>
           </th>
           <th>
-            <button class="table-sort{% if filters.sort == 'priority' %} active{% endif %}" hx-get="/partials/main?view=list&sort=priority{% if filters.query_no_sort %}&{{ filters.query_no_sort }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Priority</button>
+            <button class="table-sort{% if filters.sort == 'priority' %} active{% endif %}" hx-get="/partials/main?view=list&sort=priority&sort_dir={{ priority_next }}{% if filters.query_no_sort %}&{{ filters.query_no_sort }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Priority</button>
           </th>
           <th>
-            <button class="table-sort{% if filters.sort == 'due_date' %} active{% endif %}" hx-get="/partials/main?view=list&sort=due_date{% if filters.query_no_sort %}&{{ filters.query_no_sort }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Due</button>
+            <button class="table-sort{% if filters.sort == 'due_date' %} active{% endif %}" hx-get="/partials/main?view=list&sort=due_date&sort_dir={{ due_next }}{% if filters.query_no_sort %}&{{ filters.query_no_sort }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Due</button>
           </th>
           <th>
-            <button class="table-sort{% if filters.sort == 'percent_complete' %} active{% endif %}" hx-get="/partials/main?view=list&sort=percent_complete{% if filters.query_no_sort %}&{{ filters.query_no_sort }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Progress</button>
+            <button class="table-sort{% if filters.sort == 'percent_complete' %} active{% endif %}" hx-get="/partials/main?view=list&sort=percent_complete&sort_dir={{ progress_next }}{% if filters.query_no_sort %}&{{ filters.query_no_sort }}{% endif %}" hx-target="#app-main" hx-swap="outerHTML">Progress</button>
           </th>
         </tr>
       </thead>

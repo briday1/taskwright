@@ -1,0 +1,23 @@
+{
+  "id": "C45F-745D-9036-80FF",
+  "title": "Core Web Vitals performance budget",
+  "status": "backlog",
+  "priority": "normal",
+  "project_id": "P-CC32-A54B-CC73-D070",
+  "summary": "Enforce LCP/CLS/INP budgets in CI.",
+  "description": "Lighthouse CI gates, route-level code splitting, and image optimization.",
+  "tags": [
+    "web",
+    "performance"
+  ],
+  "start_date": "2026-08-15",
+  "due_date": "2026-09-20",
+  "completed_date": null,
+  "percent_complete": 0,
+  "depends_on": [],
+  "checklist": [],
+  "notes": [],
+  "attachments": [],
+  "activity": [],
+  "extra": {}
+}

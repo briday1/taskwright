@@ -1,0 +1,23 @@
+{
+  "id": "AEAD-0393-1F72-603E",
+  "title": "Biometric login (Face/Touch ID)",
+  "status": "backlog",
+  "priority": "normal",
+  "project_id": "P-FCD9-A304-903A-A604",
+  "summary": "Opt-in biometric unlock.",
+  "description": "Store the refresh token in the secure enclave/keystore; fall back to PIN.",
+  "tags": [
+    "mobile",
+    "security"
+  ],
+  "start_date": "2026-07-15",
+  "due_date": "2026-08-20",
+  "completed_date": null,
+  "percent_complete": 0,
+  "depends_on": [],
+  "checklist": [],
+  "notes": [],
+  "attachments": [],
+  "activity": [],
+  "extra": {}
+}

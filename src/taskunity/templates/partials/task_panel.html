@@ -19,7 +19,7 @@
     </div>
   </div>
 
-  <form hx-post="/tasks/{{ selected_task.id }}/save" hx-target="#app-main" hx-swap="outerHTML" class="task-form">
+  <form hx-post="/tasks/{{ selected_task.id }}/save" hx-target="#app-main" hx-swap="outerHTML" class="task-form" data-task-edit-form>
     {% for p in filters.projects %}<input type="hidden" name="f_project" value="{{ p }}">{% endfor %}
     <input type="hidden" name="f_from" value="{{ filters.date_from }}">
     <input type="hidden" name="f_to" value="{{ filters.date_to }}">
@@ -31,12 +31,12 @@
     <label>Title<input name="title" value="{{ selected_task.title }}" required></label>
     <label class="field-label">Project</label>
     <div class="project-picker" data-project-picker>
-      <input type="hidden" name="project" value="{{ selected_task.project }}">
+      <input type="hidden" name="project" value="{{ selected_task.project_id or selected_task.project }}">
       <details class="project-dd">
         <summary>
           <span class="project-dd-current">
             {% if selected_task.project %}
-              <span class="swatch" style="background: {{ project_colors.get(selected_task.project, '#3567e0') }}"></span>{{ selected_task.project }}
+              <span class="swatch" style="background: {{ project_colors.get(selected_task.project_id or selected_task.project, '#3567e0') }}"></span>{{ selected_task.project }}
             {% else %}
               <span class="muted">Select a project…</span>
             {% endif %}
@@ -45,7 +45,7 @@
         </summary>
         <div class="project-dd-menu">
           {% for p in projects %}
-            <button type="button" class="project-dd-item {% if p.name == selected_task.project %}selected{% endif %}" data-value="{{ p.name }}" data-color="{{ p.color }}">
+            <button type="button" class="project-dd-item {% if p.id == selected_task.project_id %}selected{% endif %}" data-value="{{ p.id }}" data-label="{{ p.name }}" data-color="{{ p.color }}">
               <span class="swatch" style="background: {{ p.color }}"></span>{{ p.name }}
             </button>
           {% endfor %}
@@ -193,7 +193,7 @@
         <p class="muted">No activity yet. Add your first update below.</p>
       {% endfor %}
     </div>
-    <form hx-post="/tasks/{{ selected_task.id }}/update" hx-target="#task-panel" hx-swap="innerHTML" enctype="multipart/form-data" class="inline-form progress-update-form">
+    <form hx-post="/tasks/{{ selected_task.id }}/update" hx-target="#task-panel" hx-swap="innerHTML" enctype="multipart/form-data" class="inline-form progress-update-form" data-save-draft-from="task">
       <input type="hidden" name="f_view" value="{{ filters.view }}">
       <input type="hidden" name="f_milestone" value="{{ filters.milestone }}">
       <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">

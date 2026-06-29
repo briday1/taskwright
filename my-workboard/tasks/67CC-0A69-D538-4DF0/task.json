@@ -1,0 +1,40 @@
+{
+  "id": "67CC-0A69-D538-4DF0",
+  "title": "GDPR data export & deletion",
+  "status": "working",
+  "priority": "critical",
+  "project_id": "P-BB9B-7F98-F322-8849",
+  "summary": "Self-serve data subject requests.",
+  "description": "Automated export bundles and cascading deletion across services.",
+  "tags": [
+    "data",
+    "compliance"
+  ],
+  "start_date": "2026-06-22",
+  "due_date": "2026-07-28",
+  "completed_date": null,
+  "percent_complete": 35,
+  "depends_on": [],
+  "checklist": [
+    {
+      "text": "Task 1",
+      "done": false
+    },
+    {
+      "text": "Task 2",
+      "done": false
+    }
+  ],
+  "notes": [],
+  "attachments": [
+    {
+      "filename": "dsr-process.txt",
+      "path": "task-files/67CC-0A69-D538-4DF0/assets/dsr-process.txt",
+      "kind": "file",
+      "description": "",
+      "uploaded_at": "2026-06-26T16:29:14"
+    }
+  ],
+  "activity": [],
+  "extra": {}
+}

@@ -1,0 +1,23 @@
+{
+  "id": "0FE4-F827-348F-2E08",
+  "title": "SEO content program",
+  "status": "backlog",
+  "priority": "low",
+  "project_id": "P-46A9-9162-2B7B-7656",
+  "summary": "Topic clusters and technical SEO.",
+  "description": "Keyword research, a publishing calendar, and Core Web Vitals fixes.",
+  "tags": [
+    "marketing",
+    "seo"
+  ],
+  "start_date": "2026-07-15",
+  "due_date": "2026-09-15",
+  "completed_date": null,
+  "percent_complete": 0,
+  "depends_on": [],
+  "checklist": [],
+  "notes": [],
+  "attachments": [],
+  "activity": [],
+  "extra": {}
+}

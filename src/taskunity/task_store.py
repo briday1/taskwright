@@ -97,24 +97,67 @@ def _slugify_name(name: str) -> str:
     return slug or "default"
 
 
-def _project_filename(name: str) -> str:
-    return f"{_slugify_name(name)}.json"
+def _generate_project_id() -> str:
+    raw = secrets.token_hex(8)
+    return "P-" + "-".join(raw[i : i + 4] for i in range(0, 16, 4)).upper()
 
 
-def load_project(workspace: Path, name: str) -> Project:
-    return Project.model_validate(load_json(workspace / "projects" / _project_filename(name)))
+def next_project_id(workspace: Path) -> str:
+    projects_dir = workspace / "projects"
+    for _ in range(1000):
+        candidate = _generate_project_id()
+        if not (projects_dir / f"{candidate}.json").exists():
+            return candidate
+    raise WorkspaceError("Unable to generate a unique project id")
+
+
+def _project_filename(project_id: str) -> str:
+    clean = _safe_id(project_id, "project id")
+    return f"{clean}.json"
+
+
+def load_project(workspace: Path, project_id: str) -> Project:
+    project = Project.model_validate(load_json(workspace / "projects" / _project_filename(project_id)))
+    if not project.id:
+        project.id = _safe_id(project_id, "project id")
+    return project
 
 
 def load_all_projects(workspace: Path) -> list[Project]:
     ensure_workspace(workspace)
     projects_dir = workspace / "projects"
-    projects = [Project.model_validate(load_json(path)) for path in sorted(projects_dir.glob("*.json"), key=lambda p: p.name.lower())]
-    return projects
+    projects: list[Project] = []
+    seen_ids: set[str] = set()
+    for path in sorted(projects_dir.glob("*.json"), key=lambda p: p.name.lower()):
+        raw = load_json(path)
+        project = Project.model_validate(raw)
+        if not project.id or project.id in seen_ids:
+            project.id = next_project_id(workspace)
+        seen_ids.add(project.id)
+        canonical = projects_dir / _project_filename(project.id)
+        if path != canonical:
+            save_json(canonical, project.model_dump(mode="json"))
+            try:
+                path.unlink()
+            except OSError:
+                pass
+        elif raw.get("id") != project.id:
+            save_json(canonical, project.model_dump(mode="json"))
+        projects.append(project)
+    return sorted(projects, key=lambda p: p.name.lower())
 
 
-def save_project(workspace: Path, project: Project) -> None:
+def save_project(workspace: Path, project: Project, *, previous_id: str = "") -> None:
     ensure_workspace(workspace)
-    save_json(workspace / "projects" / _project_filename(project.name), project.model_dump(mode="json"))
+    if not project.id:
+        project.id = next_project_id(workspace)
+    target = workspace / "projects" / _project_filename(project.id)
+    save_json(target, project.model_dump(mode="json"))
+    old = (previous_id or "").strip()
+    if old and old != project.id:
+        old_path = workspace / "projects" / _project_filename(old)
+        if old_path.exists():
+            old_path.unlink()
 
 
 DEFAULT_PROJECT_COLOR = "#2e6fd8"
@@ -131,39 +174,93 @@ PROJECT_PALETTE = [
 
 
 def available_projects(projects: list[Project], tasks: list[Task]) -> list[Project]:
+    by_id: dict[str, Project] = {p.id: p for p in projects if p.id}
     by_name: dict[str, Project] = {p.name: p for p in projects}
     for task in tasks:
+        if task.project_id and task.project_id in by_id:
+            task.project = by_id[task.project_id].name
+            continue
         if task.project and task.project not in by_name:
             by_name[task.project] = Project(name=task.project, color=DEFAULT_PROJECT_COLOR)
-    return sorted(by_name.values(), key=lambda p: p.name.lower())
+    merged = list(by_id.values())
+    for project in by_name.values():
+        if project.id and any(p.id == project.id for p in merged):
+            continue
+        if any(p.name == project.name for p in merged):
+            continue
+        merged.append(project)
+    return sorted(merged, key=lambda p: p.name.lower())
 
 
 def project_colors(projects: list[Project], tasks: list[Task]) -> dict[str, str]:
-    return {p.name: p.color for p in available_projects(projects, tasks)}
+    colors: dict[str, str] = {}
+    for project in available_projects(projects, tasks):
+        if project.name:
+            colors[project.name] = project.color
+        if project.id:
+            colors[project.id] = project.color
+    return colors
 
 
-def register_project(workspace: Path, name: str) -> None:
-    name = (name or "").strip()
-    if not name:
-        return
+def normalize_task_project_refs(workspace: Path) -> None:
     projects = load_all_projects(workspace)
-    if not any(p.name == name for p in projects):
-        used = {p.color for p in projects}
-        color = next((c for c in PROJECT_PALETTE if c not in used), DEFAULT_PROJECT_COLOR)
-        save_project(workspace, Project(name=name, color=color))
+    by_id = {p.id: p for p in projects if p.id}
+    by_name = {p.name: p for p in projects}
+    changed = False
+    for task in load_all_tasks(workspace):
+        original_id = task.project_id
+        original_name = task.project
+        if task.project_id and task.project_id in by_id:
+            task.project = by_id[task.project_id].name
+        elif task.project and task.project in by_name:
+            task.project_id = by_name[task.project].id
+            task.project = by_name[task.project].name
+        elif task.project:
+            register_project(workspace, task.project)
+            refreshed = {p.name: p for p in load_all_projects(workspace)}
+            if task.project in refreshed:
+                task.project_id = refreshed[task.project].id
+                task.project = refreshed[task.project].name
+        if task.project_id != original_id or task.project != original_name:
+            save_task(workspace, task)
+            changed = True
+    if changed:
+        load_all_projects(workspace)
 
 
-def upsert_project(workspace: Path, name: str, description: str = "", color: str = "") -> None:
+def register_project(workspace: Path, name: str) -> Project | None:
     name = (name or "").strip()
     if not name:
-        return
+        return None
+    projects = load_all_projects(workspace)
+    existing = next((p for p in projects if p.name == name), None)
+    if existing:
+        return existing
+    used = {p.color for p in projects}
+    color = next((c for c in PROJECT_PALETTE if c not in used), DEFAULT_PROJECT_COLOR)
+    project = Project(id=next_project_id(workspace), name=name, color=color)
+    save_project(workspace, project)
+    return project
+
+
+def upsert_project(workspace: Path, name: str, description: str = "", color: str = "", project_id: str = "") -> Project | None:
+    name = (name or "").strip()
+    if not name:
+        return None
     color = (color or "").strip() or DEFAULT_PROJECT_COLOR
-    project = next((item for item in load_all_projects(workspace) if item.name == name), None)
+    projects = load_all_projects(workspace)
+    project = None
+    if project_id:
+        project = next((item for item in projects if item.id == project_id), None)
     if project is None:
-        project = Project(name=name)
+        project = next((item for item in projects if item.name == name), None)
+    if project is None:
+        project = Project(id=next_project_id(workspace), name=name)
     project.description = description
     project.color = color
+    project.name = name
     save_project(workspace, project)
+    return project
 
 
 def workspace_label(workspace: Path) -> str:
@@ -200,21 +297,149 @@ def load_workspace_config(workspace: Path) -> dict[str, str]:
     return config
 
 
+def _task_dir(workspace: Path, task_id: str) -> Path:
+    clean = _safe_id(task_id, "task id")
+    return _safe_subpath(workspace / "tasks", clean)
+
+
+def _task_json_path(workspace: Path, task_id: str) -> Path:
+    return _safe_subpath(_task_dir(workspace, task_id), "task.json")
+
+
+def _task_legacy_json_path(workspace: Path, task_id: str) -> Path:
+    clean = _safe_id(task_id, "task id")
+    return _safe_subpath(workspace / "tasks", f"{clean}.json")
+
+
+def _task_assets_dir(workspace: Path, task_id: str) -> Path:
+    return _safe_subpath(_task_dir(workspace, task_id), "assets")
+
+
+def _task_activity_log_path(workspace: Path, task_id: str) -> Path:
+    return _safe_subpath(_task_dir(workspace, task_id), "activity.log")
+
+
+def _task_public_asset_relpath(task_id: str, filename: str) -> str:
+    clean = _safe_id(task_id, "task id")
+    return f"task-files/{clean}/assets/{Path(filename).name}"
+
+
+def _normalize_task_asset_paths(task: Task) -> bool:
+    changed = False
+    legacy_prefix = f"assets/{_safe_id(task.id, 'task id')}/"
+    for attachment in task.attachments:
+        path = attachment.path or ""
+        if path.startswith(legacy_prefix):
+            tail = path[len(legacy_prefix) :]
+            attachment.path = _task_public_asset_relpath(task.id, tail)
+            changed = True
+    for event in task.activity:
+        path = event.image_path or ""
+        if path.startswith(legacy_prefix):
+            tail = path[len(legacy_prefix) :]
+            event.image_path = _task_public_asset_relpath(task.id, tail)
+            changed = True
+    return changed
+
+
+def _write_task_activity_log(workspace: Path, task: Task) -> None:
+    log_path = _task_activity_log_path(workspace, task.id)
+    lines: list[str] = []
+    for note in task.notes:
+        lines.append(f"{note.created_at} | note | {note.body}")
+    for attachment in task.attachments:
+        lines.append(
+            f"{attachment.uploaded_at} | attachment | {attachment.filename} | {attachment.path}"
+        )
+    for event in task.activity:
+        if event.event_type == "progress_update":
+            lines.append(
+                f"{event.created_at} | progress_update | {event.progress_before}->{event.progress_after}"
+            )
+        elif event.event_type == "image":
+            details = event.image_filename or event.image_path or ""
+            lines.append(f"{event.created_at} | image | {details}")
+        else:
+            lines.append(f"{event.created_at} | note | {event.note_text or ''}")
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+
+
+def _migrate_task_storage(workspace: Path, task: Task) -> None:
+    legacy = _task_legacy_json_path(workspace, task.id)
+    target_json = _task_json_path(workspace, task.id)
+    target_json.parent.mkdir(parents=True, exist_ok=True)
+    _normalize_task_asset_paths(task)
+
+    if legacy.exists() and not target_json.exists():
+        save_json(target_json, task.model_dump(mode="json", exclude={"project"}))
+        try:
+            legacy.unlink()
+        except OSError:
+            pass
+
+    legacy_assets = _safe_subpath(workspace / "assets", _safe_id(task.id, "task id"))
+    new_assets = _task_assets_dir(workspace, task.id)
+    if legacy_assets.exists() and not new_assets.exists():
+        new_assets.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(legacy_assets), str(new_assets))
+
+
 def load_task(workspace: Path, task_id: str) -> Task:
-    return Task.model_validate(load_json(_safe_subpath(workspace / "tasks", f"{task_id}.json")))
+    ensure_workspace(workspace)
+    clean = _safe_id(task_id, "task id")
+    folder_json = _task_json_path(workspace, clean)
+    legacy_json = _task_legacy_json_path(workspace, clean)
+    if folder_json.exists():
+        task = Task.model_validate(load_json(folder_json))
+        if _normalize_task_asset_paths(task):
+            save_task(workspace, task)
+        return task
+    if legacy_json.exists():
+        task = Task.model_validate(load_json(legacy_json))
+        _migrate_task_storage(workspace, task)
+        _write_task_activity_log(workspace, task)
+        return task
+    raise WorkspaceError(f"Missing task: {task_id}")
 
 
 def load_all_tasks(workspace: Path) -> list[Task]:
     ensure_workspace(workspace)
     tasks: list[Task] = []
-    for path in sorted((workspace / "tasks").glob("*.json")):
-        tasks.append(Task.model_validate(load_json(path)))
+    tasks_dir = workspace / "tasks"
+    ids: set[str] = set()
+    for path in tasks_dir.glob("*.json"):
+        if path.name.endswith("task.json"):
+            continue
+        ids.add(path.stem)
+    for path in tasks_dir.iterdir():
+        if path.is_dir():
+            task_json = path / "task.json"
+            if task_json.exists():
+                ids.add(path.name)
+
+    for task_id in sorted(ids):
+        try:
+            task = load_task(workspace, task_id)
+        except WorkspaceError:
+            continue
+        tasks.append(task)
     return tasks
 
 
 def save_task(workspace: Path, task: Task) -> None:
     ensure_workspace(workspace)
-    save_json(_safe_subpath(workspace / "tasks", f"{task.id}.json"), task.model_dump(mode="json"))
+    clean = _safe_id(task.id, "task id")
+    task.id = clean
+    _task_dir(workspace, clean).mkdir(parents=True, exist_ok=True)
+    save_json(_task_json_path(workspace, clean), task.model_dump(mode="json", exclude={"project"}))
+    legacy_json = _task_legacy_json_path(workspace, clean)
+    if legacy_json.exists():
+        try:
+            legacy_json.unlink()
+        except OSError:
+            pass
+    _write_task_activity_log(workspace, task)
 
 
 def _generate_task_id() -> str:
@@ -226,7 +451,7 @@ def next_task_id(workspace: Path) -> str:
     tasks_dir = workspace / "tasks"
     for _ in range(1000):
         candidate = _generate_task_id()
-        if not (tasks_dir / f"{candidate}.json").exists():
+        if not (tasks_dir / f"{candidate}.json").exists() and not (tasks_dir / candidate).exists():
             return candidate
     raise WorkspaceError("Unable to generate a unique task id")
 
@@ -238,9 +463,16 @@ def create_task(workspace: Path, title: str = "New task") -> Task:
 
 
 def delete_task(workspace: Path, task_id: str) -> None:
-    path = _safe_subpath(workspace / "tasks", f"{task_id}.json")
-    if path.exists():
-        path.unlink()
+    clean = _safe_id(task_id, "task id")
+    legacy = _task_legacy_json_path(workspace, clean)
+    if legacy.exists():
+        legacy.unlink()
+    task_dir = _task_dir(workspace, clean)
+    if task_dir.exists():
+        shutil.rmtree(task_dir, ignore_errors=True)
+    assets = _safe_subpath(workspace / "assets", clean)
+    if assets.exists():
+        shutil.rmtree(assets, ignore_errors=True)
 
 
 def add_note(workspace: Path, task_id: str, body: str) -> Task:
@@ -254,14 +486,12 @@ def add_note(workspace: Path, task_id: str, body: str) -> Task:
 def add_attachment(workspace: Path, task_id: str, filename: str, content: bytes, content_type: str | None = None, description: str = "") -> Task:
     task = load_task(workspace, task_id)
     safe_name = Path(filename).name  # cross-platform: strips any leading path component
-    target_dir = _safe_subpath(workspace / "assets", task_id)
+    target_dir = _task_assets_dir(workspace, task.id)
     target_dir.mkdir(parents=True, exist_ok=True)
     target_path = _safe_subpath(target_dir, safe_name)
     target_path.write_bytes(content)
     kind = "image" if (content_type or "").startswith("image/") else "file"
-    rel = os.path.relpath(str(target_path), str(workspace))
-    if rel.startswith(".."):
-        raise WorkspaceError(f"Attachment path escapes workspace: {rel!r}")
+    rel = _task_public_asset_relpath(task.id, safe_name)
     task.attachments.append(
         Attachment(filename=safe_name, path=rel, kind=kind, description=description.strip())
     )
@@ -287,13 +517,11 @@ def add_task_activity_image(
 ) -> Task:
     task = load_task(workspace, task_id)
     safe_name = Path(filename).name  # cross-platform: strips any leading path component
-    target_dir = _safe_subpath(workspace / "assets", task_id)
+    target_dir = _task_assets_dir(workspace, task.id)
     target_dir.mkdir(parents=True, exist_ok=True)
     target_path = _safe_subpath(target_dir, safe_name)
     target_path.write_bytes(content)
-    rel = os.path.relpath(str(target_path), str(workspace))
-    if rel.startswith(".."):
-        raise WorkspaceError(f"Image path escapes workspace: {rel!r}")
+    rel = _task_public_asset_relpath(task.id, safe_name)
     description_text = description.strip() or None
     task.activity.append(
         TaskActivityEvent(
@@ -335,7 +563,10 @@ def load_all_milestones(workspace: Path) -> list[Milestone]:
 
 def save_milestone(workspace: Path, milestone: Milestone) -> None:
     ensure_workspace(workspace)
-    save_json(_safe_subpath(workspace / "milestones", f"{milestone.id}.json"), milestone.model_dump(mode="json"))
+    save_json(
+        _safe_subpath(workspace / "milestones", f"{milestone.id}.json"),
+        milestone.model_dump(mode="json", exclude={"projects"}),
+    )
 
 
 def next_milestone_id(workspace: Path) -> str:
@@ -405,7 +636,8 @@ def add_milestone_attachment(
 def add_task_to_milestone(workspace: Path, milestone_id: str, task_id: str) -> Milestone:
     milestone = load_milestone(workspace, milestone_id)
     if task_id and task_id not in milestone.task_ids:
-        if _safe_subpath(workspace / "tasks", f"{task_id}.json").exists():
+        task_exists = _task_json_path(workspace, task_id).exists() or _task_legacy_json_path(workspace, task_id).exists()
+        if task_exists:
             milestone.task_ids.append(task_id)
             save_milestone(workspace, milestone)
     return milestone

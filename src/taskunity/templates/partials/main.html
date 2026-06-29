@@ -16,7 +16,8 @@
             <input type="hidden" name="view" value="{{ filters.view }}">
             {% if filters.calendar_month %}<input type="hidden" name="calendar_month" value="{{ filters.calendar_month }}">{% endif %}
             {% if filters.calendar_year %}<input type="hidden" name="calendar_year" value="{{ filters.calendar_year }}">{% endif %}
-            {% if filters.show_closed %}<input type="hidden" name="show_closed" value="1">{% endif %}
+            {% if filters.hide_old %}<input type="hidden" name="hide_old" value="1">{% endif %}
+            {% if filters.hide_done %}<input type="hidden" name="hide_done" value="1">{% endif %}
             <input type="hidden" name="stale_days" value="{{ filters.stale_days }}">
             <span class="add-label">Keyword</span>
             <div class="add-row">
@@ -34,15 +35,35 @@
             <input type="hidden" name="view" value="{{ filters.view }}">
             {% if filters.calendar_month %}<input type="hidden" name="calendar_month" value="{{ filters.calendar_month }}">{% endif %}
             {% if filters.calendar_year %}<input type="hidden" name="calendar_year" value="{{ filters.calendar_year }}">{% endif %}
-            <input type="hidden" name="show_closed" value="{% if filters.show_closed %}1{% else %}0{% endif %}" data-show-closed-hidden>
             <span class="add-label">Old tasks</span>
             <div class="add-row add-row-tight">
               <label class="toggle-label">
-                <input type="checkbox" class="hide-old-toggle" {% if filters.show_closed %}checked{% endif %}>
-                Show old stuff
+                <input type="checkbox" name="hide_old" value="1" {% if filters.hide_old %}checked{% endif %}>
+                Hide old stuff
               </label>
+              {% if filters.hide_done %}<input type="hidden" name="hide_done" value="1">{% endif %}
               <input type="number" name="stale_days" min="1" max="365" value="{{ filters.stale_days }}" class="stale-days-input">
               <span class="muted">days</span>
+            </div>
+          </form>
+
+          <form class="add-filter" hx-get="/partials/main" hx-target="#app-main" hx-swap="outerHTML" hx-trigger="change">
+            {% for p in filters.projects %}<input type="hidden" name="project" value="{{ p }}">{% endfor %}
+            {% if filters.date_from %}<input type="hidden" name="date_from" value="{{ filters.date_from }}">{% endif %}
+            {% if filters.date_to %}<input type="hidden" name="date_to" value="{{ filters.date_to }}">{% endif %}
+            {% if filters.q %}<input type="hidden" name="q" value="{{ filters.q }}">{% endif %}
+            <input type="hidden" name="sort" value="{{ filters.sort }}">
+            <input type="hidden" name="view" value="{{ filters.view }}">
+            {% if filters.calendar_month %}<input type="hidden" name="calendar_month" value="{{ filters.calendar_month }}">{% endif %}
+            {% if filters.calendar_year %}<input type="hidden" name="calendar_year" value="{{ filters.calendar_year }}">{% endif %}
+            {% if filters.hide_old %}<input type="hidden" name="hide_old" value="1">{% endif %}
+            <input type="hidden" name="stale_days" value="{{ filters.stale_days }}">
+            <span class="add-label">Done tasks</span>
+            <div class="add-row add-row-tight">
+              <label class="toggle-label">
+                <input type="checkbox" name="hide_done" value="1" {% if filters.hide_done %}checked{% endif %}>
+                Hide done
+              </label>
             </div>
           </form>
 
@@ -55,17 +76,24 @@
               <input type="hidden" name="view" value="{{ filters.view }}">
               {% if filters.calendar_month %}<input type="hidden" name="calendar_month" value="{{ filters.calendar_month }}">{% endif %}
               {% if filters.calendar_year %}<input type="hidden" name="calendar_year" value="{{ filters.calendar_year }}">{% endif %}
-              {% if filters.show_closed %}<input type="hidden" name="show_closed" value="1">{% endif %}
+              {% if filters.hide_old %}<input type="hidden" name="hide_old" value="1">{% endif %}
+              {% if filters.hide_done %}<input type="hidden" name="hide_done" value="1">{% endif %}
               <input type="hidden" name="stale_days" value="{{ filters.stale_days }}">
-              <span class="add-label">Projects</span>
-              <div class="project-checks">
-                {% for p in projects %}
-                  <label class="project-check">
-                    <input type="checkbox" name="project" value="{{ p.name }}"{% if p.name in filters.projects %} checked{% endif %}>
-                    <span class="swatch" style="background: {{ p.color }}"></span>{{ p.name }}
-                  </label>
-                {% endfor %}
-              </div>
+              <span class="add-label">By Project</span>
+              <details class="project-filter-menu">
+                <summary>
+                  Select projects
+                  {% if filters.projects %}<span class="muted">({{ filters.projects|length }} selected)</span>{% endif %}
+                </summary>
+                <div class="project-checks">
+                  {% for p in projects %}
+                    <label class="project-check">
+                      <input type="checkbox" name="project" value="{{ p.id }}"{% if p.id in filters.projects %} checked{% endif %}>
+                      <span class="swatch" style="background: {{ p.color }}"></span>{{ p.name }}
+                    </label>
+                  {% endfor %}
+                </div>
+              </details>
             </form>
           {% endif %}
 
@@ -76,7 +104,8 @@
             <input type="hidden" name="view" value="{{ filters.view }}">
             {% if filters.calendar_month %}<input type="hidden" name="calendar_month" value="{{ filters.calendar_month }}">{% endif %}
             {% if filters.calendar_year %}<input type="hidden" name="calendar_year" value="{{ filters.calendar_year }}">{% endif %}
-            {% if filters.show_closed %}<input type="hidden" name="show_closed" value="1">{% endif %}
+            {% if filters.hide_old %}<input type="hidden" name="hide_old" value="1">{% endif %}
+            {% if filters.hide_done %}<input type="hidden" name="hide_done" value="1">{% endif %}
             <input type="hidden" name="stale_days" value="{{ filters.stale_days }}">
             <span class="add-label">Date range</span>
             <div class="add-row">
@@ -131,8 +160,10 @@
             <input type="hidden" name="f_q" value="{{ filters.q }}">
             <input type="hidden" name="f_view" value="{{ filters.view }}">
             <input type="hidden" name="f_sort" value="{{ filters.sort }}">
+            <input type="hidden" name="f_sort_dir" value="{{ filters.sort_dir }}">
             <input type="hidden" name="f_milestone" value="{{ filters.milestone }}">
             <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
+            <input type="hidden" name="f_hide_done" value="{% if filters.hide_done %}1{% endif %}">
             <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
             <input type="hidden" name="f_calendar_month" value="{{ filters.calendar_month }}">
             <input type="hidden" name="f_calendar_year" value="{{ filters.calendar_year }}">
@@ -146,8 +177,10 @@
               <input type="hidden" name="f_q" value="{{ filters.q }}">
               <input type="hidden" name="f_view" value="{{ filters.view }}">
               <input type="hidden" name="f_sort" value="{{ filters.sort }}">
+              <input type="hidden" name="f_sort_dir" value="{{ filters.sort_dir }}">
               <input type="hidden" name="f_milestone" value="{{ filters.milestone }}">
               <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
+              <input type="hidden" name="f_hide_done" value="{% if filters.hide_done %}1{% endif %}">
               <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
               <input type="hidden" name="f_calendar_month" value="{{ filters.calendar_month }}">
               <input type="hidden" name="f_calendar_year" value="{{ filters.calendar_year }}">
@@ -186,6 +219,7 @@
           <input type="hidden" name="f_view" value="{{ filters.view }}">
           <input type="hidden" name="f_milestone" value="{{ filters.milestone }}">
           <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
+          <input type="hidden" name="f_hide_done" value="{% if filters.hide_done %}1{% endif %}">
           <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
           <input type="hidden" name="f_calendar_month" value="{{ filters.calendar_month }}">
           <input type="hidden" name="f_calendar_year" value="{{ filters.calendar_year }}">

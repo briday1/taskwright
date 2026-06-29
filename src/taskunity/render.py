@@ -21,18 +21,20 @@ SORTS = {
 }
 
 
-def sort_tasks(tasks: list[Task], sort: str = "priority") -> list[Task]:
+def sort_tasks(tasks: list[Task], sort: str = "priority", sort_dir: str = "asc") -> list[Task]:
+    direction = (sort_dir or "").strip().lower()
+    reverse = direction == "desc"
     if sort == "due_date":
-        return sorted(tasks, key=lambda t: (parse_date(t.due_date) or date.max, t.title.lower()))
+        return sorted(tasks, key=lambda t: (parse_date(t.due_date) or date.max, t.title.lower()), reverse=reverse)
     if sort == "title":
-        return sorted(tasks, key=lambda t: t.title.lower())
+        return sorted(tasks, key=lambda t: t.title.lower(), reverse=reverse)
     if sort == "status":
-        return sorted(tasks, key=lambda t: (STATUS_ORDER.get(t.status, 9), t.title.lower()))
+        return sorted(tasks, key=lambda t: (STATUS_ORDER.get(t.status, 9), t.title.lower()), reverse=reverse)
     if sort == "percent_complete":
-        return sorted(tasks, key=lambda t: (-t.percent_complete, t.title.lower()))
+        return sorted(tasks, key=lambda t: (t.percent_complete, t.title.lower()), reverse=reverse)
     if sort == "project":
-        return sorted(tasks, key=lambda t: ((t.project or "~").lower(), t.title.lower()))
-    return sorted(tasks, key=lambda t: (PRIORITY_ORDER.get(t.priority, 9), t.title.lower()))
+        return sorted(tasks, key=lambda t: ((t.project or "~").lower(), t.title.lower()), reverse=reverse)
+    return sorted(tasks, key=lambda t: (PRIORITY_ORDER.get(t.priority, 9), t.title.lower()), reverse=reverse)
 
 
 def parse_date(value: str | None) -> date | None:
@@ -127,6 +129,8 @@ def milestone_rollup(milestone: Milestone, tasks_by_id: dict[str, Task]) -> dict
     )
     next_due = upcoming[0].due_date if upcoming else None
     missing = [tid for tid in milestone.task_ids if tid not in tasks_by_id]
+    project_names = sorted({(t.project or "").strip() for t in ordered if (t.project or "").strip()}, key=str.lower)
+    project_ids = sorted({(t.project_id or "").strip() for t in ordered if (t.project_id or "").strip()}, key=str.lower)
     return {
         "milestone": milestone,
         "tasks": ordered,
@@ -139,6 +143,8 @@ def milestone_rollup(milestone: Milestone, tasks_by_id: dict[str, Task]) -> dict
         "backlog": counts.get("backlog", 0),
         "progress": progress,
         "next_due": next_due,
+        "project_names": project_names,
+        "project_ids": project_ids,
     }
 
 
@@ -160,7 +166,13 @@ def filter_tasks(
     result = list(tasks)
     projects = [p for p in (projects or []) if p]
     if projects:
-        result = [t for t in result if (t.project or "") in projects]
+        project_set = set(projects)
+        result = [
+            t
+            for t in result
+            if (t.project_id and t.project_id in project_set)
+            or ((t.project or "") in project_set)
+        ]
 
     needle = (q or "").strip().lower()
     if needle:

@@ -11,6 +11,7 @@ Priority = Literal["low", "normal", "high", "critical"]
 
 
 class Project(BaseModel):
+    id: str = ""
     name: str
     description: str = ""
     color: str = "#2e6fd8"
@@ -50,6 +51,7 @@ class Task(BaseModel):
     title: str
     status: TaskStatus = "backlog"
     priority: Priority = "normal"
+    project_id: str = ""
     project: str = ""
     summary: str = ""
     description: str = ""

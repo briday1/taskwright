@@ -1,0 +1,44 @@
+{
+  "id": "4DFB-9775-281E-65C1",
+  "title": "Dashboard redesign",
+  "status": "working",
+  "priority": "high",
+  "project_id": "P-CC32-A54B-CC73-D070",
+  "summary": "Card-based, filterable dashboard.",
+  "description": "Saved views, a live activity feed, and keyboard shortcuts. See the attached spec.",
+  "tags": [
+    "web",
+    "ux"
+  ],
+  "start_date": "2026-06-10",
+  "due_date": "2026-07-15",
+  "completed_date": null,
+  "percent_complete": 55,
+  "depends_on": [],
+  "checklist": [
+    {
+      "text": "Design tokens wired",
+      "done": true
+    },
+    {
+      "text": "Build cards",
+      "done": true
+    },
+    {
+      "text": "Saved views",
+      "done": false
+    }
+  ],
+  "notes": [],
+  "attachments": [
+    {
+      "filename": "dashboard-redesign-spec.txt",
+      "path": "task-files/4DFB-9775-281E-65C1/assets/dashboard-redesign-spec.txt",
+      "kind": "file",
+      "description": "",
+      "uploaded_at": "2026-06-26T16:29:14"
+    }
+  ],
+  "activity": [],
+  "extra": {}
+}
