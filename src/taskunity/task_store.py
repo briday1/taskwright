@@ -733,7 +733,7 @@ def git_sync(workspace: Path) -> dict[str, Any]:
         branch = status["branch"] or _git(workspace, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip() or "main"
 
         if status["dirty"]:
-            _git(workspace, "add", "-A", "--", ".")
+            _git(workspace, "add", ".")
             commit = _git(
                 workspace, "commit", "-m", f"taskunity: sync workspace ({datetime.now():%Y-%m-%d %H:%M})"
             )
