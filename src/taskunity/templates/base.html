@@ -857,18 +857,23 @@
       function aiPanelStateKey(url) {
         return AI_PANEL_STATE_KEY + ':' + encodeURIComponent(url || AI_PANEL_GENERIC_URL);
       }
+      function currentAiHistoryValue(panel, msgs) {
+        var histInput = panel ? panel.querySelector('#ai-history') : null;
+        if (histInput && histInput.value) return histInput.value;
+        if (msgs && msgs.dataset && msgs.dataset.history) return msgs.dataset.history;
+        return '[]';
+      }
       function saveAiPanelState(url) {
         var panel = document.getElementById('ai-panel');
         if (!panel) return;
         var msgs = panel.querySelector('#ai-messages');
         var form = panel.querySelector('#ai-chat-form');
         if (!msgs && !form) return;
-        var histInput = panel.querySelector('#ai-history');
         var extraContextInput = panel.querySelector('#ai-extra-context-json');
         var textarea = panel.querySelector('textarea[name="user_message"]');
         sessionStorage.setItem(aiPanelStateKey(url || lastAiPanelUrl), JSON.stringify({
           messagesHtml: msgs ? msgs.innerHTML : '',
-          history: (histInput && histInput.value) || (msgs && msgs.dataset ? (msgs.dataset.history || '[]') : '[]') || '[]',
+          history: currentAiHistoryValue(panel, msgs),
           extraContextJson: extraContextInput ? (extraContextInput.value || '[]') : '[]',
           draft: textarea ? (textarea.value || '') : ''
         }));
@@ -971,7 +976,8 @@
           nextUrl = AI_PANEL_GENERIC_URL;
           lastAiPanelUrl = nextUrl;
           sessionStorage.setItem(AI_PANEL_URL_KEY, nextUrl);
-          if (shouldSyncNow && (!panelHasContent(panel) || currentUrl !== nextUrl)) {
+          var shouldRefreshGenericPanel = shouldSyncNow && (!panelHasContent(panel) || currentUrl !== nextUrl);
+          if (shouldRefreshGenericPanel) {
             aiSyncPanelContext(AI_PANEL_GENERIC_URL);
           }
           return;
