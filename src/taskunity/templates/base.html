@@ -872,21 +872,21 @@
         }
       }
       function syncAiContextFromCurrentPanel() {
+        var main = getMainLayout();
+        var shouldSyncNow = !!(main && !main.classList.contains('ai-panel-collapsed')) || sessionStorage.getItem(AI_PANEL_OPEN_KEY) === '1';
         var nextUrl = resolveAiContextUrlFromTaskPanel();
         syncAiToggleContextUrl(nextUrl);
         if (!nextUrl) {
           lastAiPanelUrl = AI_PANEL_GENERIC_URL;
           sessionStorage.setItem(AI_PANEL_URL_KEY, AI_PANEL_GENERIC_URL);
-          var mainNoSelection = getMainLayout();
-          if (mainNoSelection && !mainNoSelection.classList.contains('ai-panel-collapsed')) {
+          if (shouldSyncNow) {
             aiSyncPanelContext(AI_PANEL_GENERIC_URL);
           }
           return;
         }
         lastAiPanelUrl = nextUrl;
         sessionStorage.setItem(AI_PANEL_URL_KEY, nextUrl);
-        var main = getMainLayout();
-        if (!main || main.classList.contains('ai-panel-collapsed')) return;
+        if (!shouldSyncNow) return;
         aiSyncPanelContext(nextUrl);
       }
       function openAiPanel() {
@@ -899,7 +899,7 @@
           lastAiPanelUrl = AI_PANEL_GENERIC_URL;
           sessionStorage.setItem(AI_PANEL_URL_KEY, AI_PANEL_GENERIC_URL);
         }
-        if (panel && lastAiPanelUrl && window.htmx && typeof window.htmx.ajax === 'function') {
+        if (panel && !panelHasContent(panel) && lastAiPanelUrl && window.htmx && typeof window.htmx.ajax === 'function') {
           window.htmx.ajax('GET', lastAiPanelUrl, { target: '#ai-panel', swap: 'innerHTML' });
         }
         updateAiPanelToggle();
