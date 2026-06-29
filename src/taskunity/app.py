@@ -1159,6 +1159,7 @@ Rules:
         calendar_month: int | None = None,
         calendar_year: int | None = None,
         git_message: str = "",
+        git_message_level: str = "",
     ) -> dict:
         projects = [p for p in (projects or []) if p]
         q = (q or "").strip()
@@ -1347,6 +1348,7 @@ Rules:
             "git": git_status(workspace),
             "git_lfs": git_lfs_status(workspace),
             "git_message": git_message,
+            "git_message_level": git_message_level,
             "task_activity_entries": build_task_activity_entries(selected_task),
             "task_index": [
                 {
@@ -2637,19 +2639,30 @@ Rules:
         f_from: str = Form(""),
         f_to: str = Form(""),
         f_q: str = Form(""),
+        f_panel_task: str = Form(""),
         f_view: str = Form("list"),
         f_sort: str = Form("priority"),
         f_sort_dir: str = Form(""),
         f_milestone: str = Form(""),
         f_show_closed: str = Form(""),
+        f_hide_done: str = Form(""),
         f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
+        f_calendar_month: str = Form(""),
+        f_calendar_year: str = Form(""),
     ) -> HTMLResponse:
         result = git_sync(workspace)
+        selected_task = None
+        if f_panel_task:
+            try:
+                selected_task = load_task(workspace, f_panel_task)
+            except Exception:
+                selected_task = None
         return templates.TemplateResponse(
             request,
             "partials/main.html",
             context(
                 request,
+                selected_task=selected_task,
                 projects=f_project,
                 date_from=f_from,
                 date_to=f_to,
@@ -2659,8 +2672,12 @@ Rules:
                 view=f_view,
                 milestone=f_milestone,
                 show_closed=parse_toggle(f_show_closed),
+                hide_done=parse_toggle(f_hide_done),
                 stale_days=parse_stale_days(f_stale_days),
+                calendar_month=parse_calendar_month(f_calendar_month),
+                calendar_year=parse_calendar_year(f_calendar_year),
                 git_message=result["message"],
+                git_message_level="success" if result["ok"] else "error",
             ),
         )
 
@@ -4025,4 +4042,3 @@ Rules:
         )
 
     return app
-
