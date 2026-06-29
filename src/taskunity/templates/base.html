@@ -695,11 +695,7 @@
         var loadBtn = e.target.closest('#ai-load-models-btn');
         if (!loadBtn) return;
         var modelInput = document.getElementById('ai-model-input');
-        var datalist = document.getElementById('ai-model-datalist');
-        if (datalist && datalist.options.length > 0 && modelInput) {
-          modelInput.setAttribute('list', 'ai-model-datalist');
-        }
-        // HTMX handles the actual request, just wire the list attribute after swap
+        // HTMX handles the actual request, wire the list attribute after swap
         loadBtn.addEventListener('htmx:afterSwap', function () {
           if (modelInput) modelInput.setAttribute('list', 'ai-model-datalist');
         }, { once: true });

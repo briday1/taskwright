@@ -57,7 +57,8 @@
   var msgs = document.getElementById('ai-messages');
   if (!msgs) return;
   // Find the most recent history value and update the hidden input
-  var latest = msgs.querySelector('[data-history]:last-child');
+  var allWithHistory = msgs.querySelectorAll('[data-history]');
+  var latest = allWithHistory.length ? allWithHistory[allWithHistory.length - 1] : null;
   if (latest) {
     msgs.dataset.history = latest.dataset.history;
     var histInput = document.getElementById('ai-history');

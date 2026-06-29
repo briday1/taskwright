@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import csv
+import html as html_lib
 import io
 import json
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -329,7 +331,6 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         On parse failure, returns an empty suggestions dict so callers can degrade
         gracefully to plain text rendering.
         """
-        import re
         suggestions: dict = {}
         # Try fenced code block first
         fence_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
@@ -404,6 +405,8 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
             "recent_notes": notes_preview,
         }
         return json.dumps(data, indent=2)
+
+    _MAX_TASK_SUMMARY_LENGTH = 500
 
     SYSTEM_PROMPT = """\
 You are a planning assistant integrated into Taskunity, a local task management app.
@@ -2168,11 +2171,11 @@ Keep responses concise and actionable."""
             return HTMLResponse('<option value="">No endpoint configured</option>')
         try:
             models = _ai_fetch_models(cfg)
-        except Exception as exc:
-            return HTMLResponse(f'<option value="">Error: {exc}</option>')
+        except Exception:
+            return HTMLResponse('<option value="">Could not load models</option>')
         current = cfg["ai_model"]
         opts = "\n".join(
-            f'<option value="{m}"{"selected" if m == current else ""}>{m}</option>'
+            f'<option value="{html_lib.escape(m)}"{"selected" if m == current else ""}>{html_lib.escape(m)}</option>'
             for m in models
         )
         return HTMLResponse(opts or '<option value="">No models found</option>')
@@ -2373,13 +2376,12 @@ Keep responses concise and actionable."""
             return HTMLResponse(_ai_error_html(f"HTTP {exc.code}: {exc.reason} — {body}"))
         except urllib.error.URLError as exc:
             return HTMLResponse(_ai_error_html(f"Connection error: {exc.reason}"))
-        except Exception as exc:
-            return HTMLResponse(_ai_error_html(f"Error: {exc}"))
+        except Exception:
+            return HTMLResponse(_ai_error_html("An unexpected error occurred. Please check your endpoint settings."))
 
         suggestions = _parse_ai_suggestions(reply_text)
         # Strip the JSON block from the display text
-        import re as _re
-        display_text = _re.sub(r"```(?:json)?\s*\{.*?\}\s*```", "", reply_text, flags=_re.DOTALL).strip()
+        display_text = re.sub(r"```(?:json)?\s*\{.*?\}\s*```", "", reply_text, flags=re.DOTALL).strip()
 
         new_history = list(history_msgs)
         new_history.append({"role": "user", "content": user_message})
@@ -2431,14 +2433,13 @@ Keep responses concise and actionable."""
             if not isinstance(item, dict) or not item.get("title"):
                 continue
             task = create_task(workspace, item["title"])
-            task.summary = str(item.get("summary", ""))[:500]
+            task.summary = str(item.get("summary", ""))[:_MAX_TASK_SUMMARY_LENGTH]
             if item.get("priority") in {"low", "normal", "high", "critical"}:
                 task.priority = item["priority"]
             save_task(workspace, task)
             # add to milestone if valid
             try:
-                from .task_store import add_task_to_milestone as _atm
-                _atm(workspace, milestone_id, task.id)
+                add_task_to_milestone(workspace, milestone_id, task.id)
             except Exception:
                 pass
             created.append(task.title)
