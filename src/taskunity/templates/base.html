@@ -87,16 +87,17 @@
         });
       })();
 
-      function setProject(picker, value, color) {
+      function setProject(picker, value, color, label) {
         var hidden = picker.querySelector('input[name="project"]');
         var current = picker.querySelector('.project-dd-current');
         if (hidden) hidden.value = value;
+        var shown = (label || value || '').trim();
         if (current) {
           if (color) {
             current.innerHTML = '<span class="swatch" style="background:' + color + '"></span>';
-            current.appendChild(document.createTextNode(value));
+            current.appendChild(document.createTextNode(shown));
           } else {
-            current.textContent = value;
+            current.textContent = shown;
           }
         }
         picker.querySelectorAll('.project-dd-item').forEach(function (b) {
@@ -109,7 +110,7 @@
         var item = e.target.closest('.project-dd-item');
         if (item) {
           var picker = item.closest('[data-project-picker]');
-          if (picker) setProject(picker, item.dataset.value, item.dataset.color);
+          if (picker) setProject(picker, item.dataset.value, item.dataset.color, item.dataset.label || item.textContent);
           return;
         }
         document.querySelectorAll('.project-dd[open]').forEach(function (dd) {
@@ -122,7 +123,7 @@
           var val = e.target.value.trim();
           if (!val) return;
           var picker = e.target.closest('[data-project-picker]');
-          if (picker) setProject(picker, val, '');
+          if (picker) setProject(picker, val, '', val);
         }
       });
 
@@ -293,12 +294,66 @@
         }
       });
 
-      document.addEventListener('change', function (e) {
-        if (!(e.target.classList && e.target.classList.contains('hide-old-toggle'))) return;
-        var form = e.target.closest('form');
+      function removeDraftFields(form) {
         if (!form) return;
-        var hidden = form.querySelector('[data-show-closed-hidden]');
-        if (hidden) hidden.value = e.target.checked ? '1' : '0';
+        form.querySelectorAll('input[data-draft-field="1"]').forEach(function (el) { el.remove(); });
+      }
+      function appendDraftField(form, name, value) {
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value == null ? '' : String(value);
+        input.setAttribute('data-draft-field', '1');
+        form.appendChild(input);
+      }
+      function copyNamedValue(sourceForm, targetForm, sourceName, targetName) {
+        if (!sourceForm || !targetForm) return;
+        var field = sourceForm.querySelector('[name="' + sourceName + '"]');
+        if (!field) return;
+        appendDraftField(targetForm, targetName || sourceName, field.value || '');
+      }
+      function copyNamedValues(sourceForm, targetForm, sourceName, targetName) {
+        if (!sourceForm || !targetForm) return;
+        sourceForm.querySelectorAll('[name="' + sourceName + '"]').forEach(function (field) {
+          appendDraftField(targetForm, targetName || sourceName, field.value || '');
+        });
+      }
+      function applyTaskDraftToActionForm(actionForm) {
+        var scope = actionForm.closest('.panel-scroll') || document;
+        var sourceForm = scope.querySelector('form[data-task-edit-form]');
+        if (!sourceForm) return;
+        removeDraftFields(actionForm);
+        copyNamedValue(sourceForm, actionForm, 'title', 'save_title');
+        copyNamedValue(sourceForm, actionForm, 'project', 'save_project');
+        copyNamedValue(sourceForm, actionForm, 'summary', 'save_summary');
+        copyNamedValue(sourceForm, actionForm, 'description', 'save_task_description');
+        copyNamedValue(sourceForm, actionForm, 'tags', 'save_tags');
+        copyNamedValue(sourceForm, actionForm, 'start_date', 'save_start_date');
+        copyNamedValue(sourceForm, actionForm, 'due_date', 'save_due_date');
+        copyNamedValue(sourceForm, actionForm, 'completed_date', 'save_completed_date');
+        copyNamedValue(sourceForm, actionForm, 'depends_on', 'save_depends_on');
+      }
+      function applyMilestoneDraftToActionForm(actionForm) {
+        var scope = actionForm.closest('.panel-scroll') || document;
+        var sourceForm = scope.querySelector('form[data-milestone-edit-form]');
+        if (!sourceForm) return;
+        removeDraftFields(actionForm);
+        copyNamedValue(sourceForm, actionForm, 'title', 'save_title');
+        copyNamedValue(sourceForm, actionForm, 'status', 'save_status');
+        copyNamedValue(sourceForm, actionForm, 'color', 'save_color');
+        copyNamedValue(sourceForm, actionForm, 'summary', 'save_summary');
+        copyNamedValue(sourceForm, actionForm, 'description', 'save_description');
+        copyNamedValue(sourceForm, actionForm, 'start_date', 'save_start_date');
+        copyNamedValue(sourceForm, actionForm, 'target_date', 'save_target_date');
+        appendDraftField(actionForm, 'save_projects_present', '1');
+        copyNamedValues(sourceForm, actionForm, 'projects', 'save_projects');
+      }
+      document.body.addEventListener('htmx:beforeRequest', function (e) {
+        var form = e && e.detail ? e.detail.elt : null;
+        if (!form || !form.matches || !form.matches('form[data-save-draft-from]')) return;
+        var mode = form.getAttribute('data-save-draft-from');
+        if (mode === 'task') applyTaskDraftToActionForm(form);
+        if (mode === 'milestone') applyMilestoneDraftToActionForm(form);
       });
 
       function setComposerTab(root, name) {

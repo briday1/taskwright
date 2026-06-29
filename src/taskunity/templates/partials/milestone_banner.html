@@ -6,7 +6,7 @@
         <h2>{{ selected_milestone.title }}</h2>
         <div class="mb-meta">
           <span class="ms-status {{ selected_milestone.status }}">{{ selected_milestone.status }}</span>
-          {% for proj in selected_milestone.projects %}
+          {% for proj in rollup.project_names %}
             <span class="project" style="background: {{ project_colors.get(proj, '#2e6fd8') }}22; color: {{ project_colors.get(proj, '#2e6fd8') }}">{{ proj }}</span>
           {% endfor %}
           {% if selected_milestone.target_date %}<span class="mb-target">🎯 {{ selected_milestone.target_date }}</span>{% endif %}

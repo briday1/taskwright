@@ -1,0 +1,25 @@
+{
+  "id": "3067-802D-56B9-4A0A",
+  "title": "Zero-downtime deploys",
+  "status": "working",
+  "priority": "high",
+  "project_id": "P-074A-6ECA-EEB7-B049",
+  "summary": "Blue/green & canary rollouts.",
+  "description": "Progressive delivery with Argo Rollouts and automated rollback on SLO breach.",
+  "tags": [
+    "infra",
+    "ci"
+  ],
+  "start_date": "2026-06-18",
+  "due_date": "2026-08-05",
+  "completed_date": null,
+  "percent_complete": 40,
+  "depends_on": [
+    "A6C5-343C-412B-B4F5"
+  ],
+  "checklist": [],
+  "notes": [],
+  "attachments": [],
+  "activity": [],
+  "extra": {}
+}

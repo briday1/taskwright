@@ -1,0 +1,25 @@
+{
+  "id": "B68F-19C9-6AC9-F957",
+  "title": "Realtime collaboration",
+  "status": "working",
+  "priority": "critical",
+  "project_id": "P-CC32-A54B-CC73-D070",
+  "summary": "Multi-user editing with presence.",
+  "description": "WebSocket presence, cursors, and operational-transform document sync.",
+  "tags": [
+    "web",
+    "realtime"
+  ],
+  "start_date": "2026-06-20",
+  "due_date": "2026-08-10",
+  "completed_date": null,
+  "percent_complete": 30,
+  "depends_on": [
+    "3067-802D-56B9-4A0A"
+  ],
+  "checklist": [],
+  "notes": [],
+  "attachments": [],
+  "activity": [],
+  "extra": {}
+}

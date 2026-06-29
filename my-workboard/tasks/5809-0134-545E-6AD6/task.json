@@ -1,0 +1,25 @@
+{
+  "id": "5809-0134-545E-6AD6",
+  "title": "Product analytics dashboards",
+  "status": "backlog",
+  "priority": "normal",
+  "project_id": "P-BB9B-7F98-F322-8849",
+  "summary": "Self-serve funnels and retention.",
+  "description": "Activation, retention cohorts, and feature-adoption dashboards.",
+  "tags": [
+    "data",
+    "analytics"
+  ],
+  "start_date": "2026-08-01",
+  "due_date": "2026-09-10",
+  "completed_date": null,
+  "percent_complete": 0,
+  "depends_on": [
+    "3A50-8178-5FFE-C65A"
+  ],
+  "checklist": [],
+  "notes": [],
+  "attachments": [],
+  "activity": [],
+  "extra": {}
+}

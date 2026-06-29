@@ -1,0 +1,44 @@
+{
+  "id": "4981-D3C1-BEB9-6D08",
+  "title": "Public REST API v2",
+  "status": "working",
+  "priority": "critical",
+  "project_id": "P-CC32-A54B-CC73-D070",
+  "summary": "Versioned, paginated public API.",
+  "description": "Cursor pagination, rate limits, API keys, and an OpenAPI spec. See the attachment.",
+  "tags": [
+    "web",
+    "api"
+  ],
+  "start_date": "2026-06-12",
+  "due_date": "2026-07-25",
+  "completed_date": null,
+  "percent_complete": 45,
+  "depends_on": [],
+  "checklist": [
+    {
+      "text": "OpenAPI draft",
+      "done": true
+    },
+    {
+      "text": "Auth & keys",
+      "done": false
+    },
+    {
+      "text": "Rate limiting",
+      "done": false
+    }
+  ],
+  "notes": [],
+  "attachments": [
+    {
+      "filename": "api-v2-notes.txt",
+      "path": "task-files/4981-D3C1-BEB9-6D08/assets/api-v2-notes.txt",
+      "kind": "file",
+      "description": "",
+      "uploaded_at": "2026-06-26T16:29:14"
+    }
+  ],
+  "activity": [],
+  "extra": {}
+}

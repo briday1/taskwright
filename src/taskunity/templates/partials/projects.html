@@ -5,35 +5,35 @@
   </div>
 
   {% if projects %}
-    <div class="project-cards">
+    <div class="milestone-list">
       {% for p in projects %}
-        <div class="project-card" style="border-left-color: {{ p.color }}">
-          <div class="project-card-head">
-            <span class="swatch" style="background: {{ p.color }}"></span>
-            <strong>{{ p.name }}</strong>
-            <span class="spacer"></span>
-            <button
-              type="button"
-              class="btn-link"
-              hx-get="/partials/main?view=board&project={{ p.name|urlencode }}{% if filters.date_from %}&date_from={{ filters.date_from|urlencode }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to|urlencode }}{% endif %}{% if filters.q %}&q={{ filters.q|urlencode }}{% endif %}{% if filters.sort and filters.sort != 'priority' %}&sort={{ filters.sort|urlencode }}{% endif %}{% if filters.show_closed %}&show_closed=1{% endif %}&stale_days={{ filters.stale_days }}"
-              hx-target="#app-main"
-              hx-swap="outerHTML"
-              title="Show only tasks for {{ p.name }}"
-            >
-              View tasks
-            </button>
+        {% set r = project_rollups.get(p.id, {'total': 0, 'done': 0, 'working': 0, 'progress': 0}) %}
+        {% set p_state = 'done' if r.progress >= 100 and r.total > 0 else ('active' if r.working > 0 else 'planned') %}
+        <button
+          type="button"
+          class="milestone-list-item compact milestone-open-row"
+          style="--ms-color: {{ p.color }}"
+          hx-get="/partials/main?view=list&project={{ p.id|urlencode }}{% if filters.date_from %}&date_from={{ filters.date_from|urlencode }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to|urlencode }}{% endif %}{% if filters.q %}&q={{ filters.q|urlencode }}{% endif %}{% if filters.sort and filters.sort != 'priority' %}&sort={{ filters.sort|urlencode }}{% endif %}{% if filters.sort and filters.sort != 'priority' and filters.sort_dir %}&sort_dir={{ filters.sort_dir|urlencode }}{% endif %}{% if filters.hide_old %}&hide_old=1{% endif %}{% if filters.hide_done %}&hide_done=1{% endif %}{% if filters.panel_task %}&panel_task={{ filters.panel_task|urlencode }}{% endif %}&stale_days={{ filters.stale_days }}"
+          hx-target="#app-main"
+          hx-swap="outerHTML"
+          title="View tasks for {{ p.name }}"
+        >
+          <div class="milestone-list-head">
+            <div class="milestone-list-title">
+              <span class="mc-flag" aria-hidden="true">◆</span>
+              <strong>{{ p.name }}</strong>
+              <span class="ms-status {{ p_state }}">{{ p_state }}</span>
+            </div>
+            <div class="mc-stats compact">
+              <span>{{ r.total }} task{{ '' if r.total == 1 else 's' }}</span>
+              <span>{{ r.done }} done</span>
+              <span>{{ r.progress }}%</span>
+            </div>
           </div>
-          {% if p.description %}<p>{{ p.description }}</p>{% else %}<p class="muted">No description</p>{% endif %}
-          <details class="project-edit">
-            <summary>Edit</summary>
-            <form hx-post="/projects" hx-target="#app-main" hx-swap="outerHTML" class="project-form">
-              <input type="hidden" name="name" value="{{ p.name }}">
-              <label>Description<input name="description" value="{{ p.description }}"></label>
-              <label>Color<input type="color" name="color" value="{{ p.color }}"></label>
-              <button type="submit">Save</button>
-            </form>
-          </details>
-        </div>
+
+          {% if p.description %}<p class="mc-summary clamp-1">{{ p.description }}</p>{% endif %}
+
+        </button>
       {% endfor %}
     </div>
   {% else %}

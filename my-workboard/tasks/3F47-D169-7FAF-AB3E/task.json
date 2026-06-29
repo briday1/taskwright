@@ -1,0 +1,25 @@
+{
+  "id": "3F47-D169-7FAF-AB3E",
+  "title": "App store release pipeline",
+  "status": "backlog",
+  "priority": "normal",
+  "project_id": "P-FCD9-A304-903A-A604",
+  "summary": "Automated TestFlight & Play internal track builds.",
+  "description": "Fastlane lanes for beta and production, screenshots, and changelog generation.",
+  "tags": [
+    "mobile",
+    "ci"
+  ],
+  "start_date": "2026-08-01",
+  "due_date": "2026-09-10",
+  "completed_date": null,
+  "percent_complete": 0,
+  "depends_on": [
+    "AEAD-0393-1F72-603E"
+  ],
+  "checklist": [],
+  "notes": [],
+  "attachments": [],
+  "activity": [],
+  "extra": {}
+}
