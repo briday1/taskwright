@@ -684,10 +684,6 @@ def _git(workspace: Path, *args: str, timeout: int = 20) -> subprocess.Completed
     )
 
 
-def _workspace_repo_message() -> str:
-    return "Git integration only works when the workspace folder is the repository root."
-
-
 def git_status(workspace: Path) -> dict[str, Any]:
     info: dict[str, Any] = {
         "tracked": False,
@@ -697,17 +693,17 @@ def git_status(workspace: Path) -> dict[str, Any]:
         "behind": 0,
         "dirty": 0,
         "message": "",
+        "repo_root": None,
     }
     try:
         inside = _git(workspace, "rev-parse", "--is-inside-work-tree")
         if inside.returncode != 0 or inside.stdout.strip() != "true":
+            info["message"] = "Workspace is not inside a git repository."
             return info
         top_level = _git(workspace, "rev-parse", "--show-toplevel")
         if top_level.returncode != 0:
             return info
-        if Path(top_level.stdout.strip()).resolve() != workspace.resolve():
-            info["message"] = _workspace_repo_message()
-            return info
+        info["repo_root"] = Path(top_level.stdout.strip()).resolve()
         info["tracked"] = True
         info["branch"] = _git(workspace, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
         upstream = _git(workspace, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
@@ -852,7 +848,8 @@ def git_lfs_status(workspace: Path) -> dict[str, Any]:
     if not status["tracked"]:
         return info
     try:
-        lfs_hooks = workspace / ".git" / "hooks" / "pre-push"
+        repo_root = status.get("repo_root") or workspace
+        lfs_hooks = repo_root / ".git" / "hooks" / "pre-push"
         info["enabled"] = lfs_hooks.exists()
         gitattributes = workspace / ".gitattributes"
         if gitattributes.exists():
