@@ -1443,6 +1443,7 @@ Rules:
         hide_old: str = "",
         hide_done: str = "",
         stale_days: str = "",
+        panel_task: str = "",
     ) -> HTMLResponse:
         return templates.TemplateResponse(
             request,
