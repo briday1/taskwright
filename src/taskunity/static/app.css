@@ -721,8 +721,9 @@ button:focus-visible { outline: none; box-shadow: var(--ring); }
   font-weight: 600;
   color: var(--muted);
 }
-.git-sync-indicator.htmx-request { display: inline-flex; }
-.git-sync-indicator.synced { color: var(--done); font-weight: 700; }
+.git-sync-indicator.htmx-request {
+  display: inline-flex;
+}
 .git-sync-btn.secondary {
   background: var(--bg-soft);
   color: var(--text);
