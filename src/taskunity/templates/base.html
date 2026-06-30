@@ -665,6 +665,10 @@
         if (main) {
           main.classList.toggle('panel-collapsed', preservedTaskPanelCollapsed);
         }
+        // Expand panel if the fresh panel has content (from selected_milestone or selected_task)
+        if (freshPanel && panelHasContent(freshPanel)) {
+          main.classList.remove('panel-collapsed');
+        }
         if (!lastTaskPanelUrl) return;
         var panel = freshPanel || document.getElementById('task-panel');
         if (!panel) return;
