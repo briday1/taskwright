@@ -10,7 +10,7 @@
         {% set r = project_rollups.get(p.id, {'total': 0, 'done': 0, 'working': 0, 'progress': 0}) %}
         {% set p_state = 'done' if r.progress >= 100 and r.total > 0 else ('active' if r.working > 0 else 'planned') %}
         <div class="milestone-list-item compact milestone-open-row project-row" style="--ms-color: {{ p.color }}">
-          <form hx-get="/partials/main" hx-target="#app-main" hx-swap="outerHTML" class="project-open-form">
+          <form hx-trigger="submit" hx-get="/partials/main" hx-target="#app-main" hx-swap="outerHTML" class="project-open-form">
             <input type="hidden" name="view" value="list">
             <input type="hidden" name="project" value="{{ p.id }}">
             <input type="hidden" name="sort" value="{{ filters.sort }}">
