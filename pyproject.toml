@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "taskunity"
-version = "2026.26"
+version = "2026.27"
 description = "A local, file-backed productivity app for program/task tracking."
 readme = "README.md"
 requires-python = ">=3.10"
