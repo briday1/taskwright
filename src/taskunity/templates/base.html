@@ -649,19 +649,13 @@
         if (!target || target.id !== 'app-main') return;
         var main = getMainLayout();
         if (main) preservedTaskPanelCollapsed = main.classList.contains('panel-collapsed');
-        var existingPanel = document.getElementById('task-panel');
-        preservedTaskPanelNode = existingPanel && panelHasContent(existingPanel) ? existingPanel : null;
+        preservedTaskPanelNode = null;
       });
       document.body.addEventListener('htmx:afterSwap', function (e) {
         var target = e && e.detail ? e.detail.target : null;
         if (!target || target.id !== 'app-main') return;
         var main = getMainLayout();
         var freshPanel = document.getElementById('task-panel');
-        if (freshPanel && preservedTaskPanelNode) {
-          freshPanel.replaceWith(preservedTaskPanelNode);
-          freshPanel = preservedTaskPanelNode;
-          preservedTaskPanelNode = null;
-        }
         if (main) {
           main.classList.toggle('panel-collapsed', preservedTaskPanelCollapsed);
         }
