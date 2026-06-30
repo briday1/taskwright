@@ -711,9 +711,10 @@ button:focus-visible { outline: none; box-shadow: var(--ring); }
   box-shadow: var(--shadow-sm);
 }
 .git-sync-btn[disabled] { opacity: .78; cursor: progress; }
-.git-sync-working { display: none; }
+.git-sync-label { display: inline; }
+.git-sync-working { display: none !important; }
 .git-sync-form.htmx-request .git-sync-label { display: none; }
-.git-sync-form.htmx-request .git-sync-working { display: inline; }
+.git-sync-form.htmx-request .git-sync-working { display: inline !important; }
 .git-sync-indicator {
   display: none;
   align-items: center;
