@@ -35,7 +35,7 @@
       </thead>
       <tbody>
         {% for task in model.tasks %}
-          <tr class="task-row {{ task.status }}" hx-trigger="click" hx-on="click: event.stopPropagation()"
+          <tr class="task-row {{ task.status }}" hx-trigger="click"
             hx-get="/partials/main?view={{ filters.view }}{% if filters.query %}&{{ filters.query }}{% endif %}&panel_task={{ task.id }}"
             hx-target="#app-main" hx-swap="outerHTML">
             <td>{{ task.title }}</td>
