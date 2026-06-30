@@ -179,9 +179,9 @@
       </div>
     </div>
 
-    {% if git_message %}
-      <div class="git-toast{% if git_message_level %} {{ git_message_level }}{% endif %}" role="{% if git_message_level == 'error' %}alert{% else %}status{% endif %}">
-        <span class="git-toast-state" aria-hidden="true">{% if git_message_level == 'error' %}⚠{% else %}✓{% endif %}</span>
+    {% if git_message and git_message_level == 'error' %}
+      <div class="git-toast error" role="alert">
+        <span class="git-toast-state" aria-hidden="true">⚠</span>
         <span class="git-toast-msg">{{ git_message }}</span>
         <button type="button" class="git-toast-close" aria-label="Dismiss" onclick="this.closest('.git-toast').remove()">×</button>
       </div>

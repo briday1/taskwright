@@ -712,8 +712,8 @@ button:focus-visible { outline: none; box-shadow: var(--ring); }
 }
 .git-sync-btn[disabled] { opacity: .78; cursor: progress; }
 .git-sync-working { display: none; }
-.git-sync-form[data-syncing="1"] .git-sync-label { display: none; }
-.git-sync-form[data-syncing="1"] .git-sync-working { display: inline; }
+.git-sync-form.htmx-request .git-sync-label { display: none; }
+.git-sync-form.htmx-request .git-sync-working { display: inline; }
 .git-sync-indicator {
   display: none;
   align-items: center;
