@@ -1170,6 +1170,19 @@
 
       syncAiContextFromCurrentPanel();
       updateAiPanelToggle();
+
+      // Auto-hide sync indicator after git sync completes
+      document.addEventListener('htmx:afterRequest', function (e) {
+        var form = e && e.detail && e.detail.xhr && e.detail.xhr.response;
+        var target = e && e.detail ? e.detail.target : null;
+        // Only hide indicator if this was a git sync request (target is #app-main from git-sync-form)
+        if (!target || target.id !== 'app-main') return;
+        var indicator = document.getElementById('git-sync-indicator');
+        if (!indicator) return;
+        setTimeout(function () {
+          indicator.style.display = 'none';
+        }, 1500);
+      });
     })();
   </script>
 </body>
