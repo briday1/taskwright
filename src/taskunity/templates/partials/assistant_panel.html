@@ -47,6 +47,20 @@
         <div class="ai-extra-context" id="ai-extra-context">
           <div class="ai-extra-context-title">Context</div>
           <div id="ai-context-chips" class="ai-context-chips"></div>
+          <div class="ai-context-add-wrap">
+            <div class="ai-context-add-controls">
+              <select id="ai-add-kind-select" class="ai-setting-input-sm">
+                <option value="task">Task</option>
+                <option value="project">Project</option>
+                <option value="milestone">Milestone</option>
+              </select>
+              <div class="ai-context-search-wrap">
+                <input type="text" id="ai-context-search-input" class="ai-setting-input-sm ai-context-search-input" placeholder="Search as you type…" autocomplete="off">
+                <div id="ai-context-search-menu" class="ai-context-search-menu" hidden></div>
+              </div>
+              <button type="button" class="ai-quick-btn" id="ai-context-add-confirm">Add</button>
+            </div>
+          </div>
         </div>
 
         <div class="ai-textarea-row">
@@ -58,15 +72,10 @@
             required
             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.closest('form').requestSubmit();}"
           ></textarea>
-          <button type="submit" class="ai-send-btn" title="Send">→</button>
-        </div>
-      </form>
-
-      <div id="ai-thinking" class="ai-thinking htmx-indicator">
         <span class="ai-thinking-dot"></span>
-        <span class="ai-thinking-dot"></span>
-        <span class="ai-thinking-dot"></span>
-      </div>
+          var rows = getRows(kind).filter(function (row) {
+            return !query || normalize(row.label).indexOf(query) !== -1 || normalize(row.id).indexOf(query) !== -1;
+          }).slice(0, 12);
     </div>
   {% endif %}
 </div>
@@ -74,26 +83,54 @@
 (function () {
   var hidden = document.getElementById('ai-extra-context-json');
   var chipsRoot = document.getElementById('ai-context-chips');
+  var optionsJson = document.getElementById('ai-context-options-json');
   var currentKindEl = document.getElementById('ai-current-context-kind');
   var currentIdEl = document.getElementById('ai-current-context-id');
   var currentLabelEl = document.getElementById('ai-current-context-label');
+  var kindSelect = document.getElementById('ai-add-kind-select');
+  var searchInput = document.getElementById('ai-context-search-input');
+  var searchMenu = document.getElementById('ai-context-search-menu');
+  var addConfirm = document.getElementById('ai-context-add-confirm');
   var form = document.getElementById('ai-chat-form');
-  var contextTypeInput = form ? form.querySelector('[name="context_type"]') : null;
-  var entityIdInput = form ? form.querySelector('[name="entity_id"]') : null;
-  var contextJsonInput = form ? form.querySelector('[name="context_json"]') : null;
-  if (!hidden || !chipsRoot || !form) return;
+            btn.innerHTML = '<span class="ai-context-search-item-main"></span><span class="ai-context-search-item-kind"></span>';
+            btn.querySelector('.ai-context-search-item-main').textContent = row.label;
+            btn.querySelector('.ai-context-search-item-kind').textContent = row.kind;
+  if (!hidden || !chipsRoot || !optionsJson || !kindSelect || !searchInput || !searchMenu || !addConfirm || !form) return;
+
+  var selectedContext = null;
+
+  function getContextOptions() {
+    try {
+      var parsed = JSON.parse(optionsJson.textContent || '{}');
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function getRows(kind) {
+    var opts = getContextOptions();
+    var key = kind === 'project' ? 'projects' : kind === 'milestone' ? 'milestones' : 'tasks';
+    var rows = Array.isArray(opts[key]) ? opts[key] : [];
+    return rows.map(function (row) {
+      return {
+        kind: kind,
+        id: row.id,
+        label: row.label || row.id || ''
+      };
+    });
+  }
+
+  function normalize(text) {
+    return (text || '').toString().trim().toLowerCase();
+  }
 
   function getCurrentContext() {
     var kind = (currentKindEl && currentKindEl.value) || '';
     var id = (currentIdEl && currentIdEl.value) || '';
     var label = (currentLabelEl && currentLabelEl.value) || '';
     if (!id && !label) return null;
-    return {
-      kind: kind,
-      id: id,
-      label: label,
-      fixed: true
-    };
+    return { kind: kind, id: id, label: label, fixed: true };
   }
 
   function parseList() {
@@ -107,6 +144,70 @@
   function saveList(list) {
     hidden.value = JSON.stringify(list || []);
     render();
+  }
+
+  function renderSearchMenu() {
+    if (!searchMenu) return;
+    var query = normalize(searchInput.value);
+    if (!query) {
+      searchMenu.innerHTML = '';
+      searchMenu.hidden = true;
+      return;
+    }
+    var kind = kindSelect.value || 'task';
+    var rows = getRows(kind).filter(function (row) {
+      return normalize(row.label).indexOf(query) !== -1 || normalize(row.id).indexOf(query) !== -1;
+    }).slice(0, 8);
+    searchMenu.innerHTML = '';
+    if (!rows.length) {
+      var empty = document.createElement('div');
+      empty.className = 'ai-context-search-empty';
+        searchInput.addEventListener('focus', renderSearchMenu);
+        searchInput.addEventListener('click', renderSearchMenu);
+      searchMenu.appendChild(empty);
+      searchMenu.hidden = false;
+      return;
+    }
+    rows.forEach(function (row) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ai-context-search-item';
+      btn.dataset.kind = row.kind;
+      btn.dataset.id = row.id;
+      btn.dataset.label = row.label;
+      btn.innerHTML = '<strong></strong><span></span>';
+      btn.querySelector('strong').textContent = row.label;
+      btn.querySelector('span').textContent = row.kind;
+      if (selectedContext && selectedContext.kind === row.kind && selectedContext.id === row.id) btn.classList.add('is-selected');
+      searchMenu.appendChild(btn);
+    });
+    searchMenu.hidden = false;
+  }
+
+  function selectSearchItem(kind, id, label) {
+    selectedContext = { kind: kind, id: id, label: label || id };
+    searchInput.value = label || id || '';
+    renderSearchMenu();
+  }
+
+  function addSelectedContext() {
+    if (!selectedContext) {
+      var fallback = getRows(kindSelect.value || 'task').filter(function (row) {
+        var q = normalize(searchInput.value);
+        return q && (normalize(row.label).indexOf(q) !== -1 || normalize(row.id).indexOf(q) !== -1);
+      })[0];
+      if (fallback) selectedContext = fallback;
+    }
+    if (!selectedContext) return;
+    var list = parseList();
+    var exists = list.some(function (x) { return x.kind === selectedContext.kind && x.id === selectedContext.id; });
+    if (!exists) {
+      list.push({ kind: selectedContext.kind, id: selectedContext.id, label: selectedContext.label });
+      saveList(list);
+    }
+    selectedContext = null;
+    searchInput.value = '';
+    renderSearchMenu();
   }
   function render() {
     var list = parseList();
@@ -129,7 +230,45 @@
 
   render();
 
-  window.taskunityAiRenderContextChips = render;
+  window.taskunityAiRenderContextChips = function () {
+    render();
+    renderSearchMenu();
+  };
+
+  kindSelect.addEventListener('change', function () {
+    selectedContext = null;
+    searchInput.value = '';
+    renderSearchMenu();
+    searchInput.focus();
+  });
+  searchInput.addEventListener('input', function () {
+    selectedContext = null;
+    renderSearchMenu();
+  });
+  searchInput.addEventListener('focus', renderSearchMenu);
+  addConfirm.addEventListener('click', addSelectedContext);
+
+  document.addEventListener('keydown', function (e) {
+    if (e.target !== searchInput) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addSelectedContext();
+    } else if (e.key === 'Escape') {
+      searchMenu.hidden = true;
+    }
+  });
+
+  document.addEventListener('click', function (e) {
+    var addItem = e.target.closest('.ai-context-search-item');
+    if (addItem) {
+      selectSearchItem(addItem.dataset.kind, addItem.dataset.id, addItem.dataset.label);
+      searchInput.focus();
+      return;
+    }
+    if (searchMenu && !searchMenu.contains(e.target) && e.target !== searchInput) {
+      searchMenu.hidden = true;
+    }
+  });
 
   document.addEventListener('click', function (e) {
     var currentRm = e.target.closest('[data-remove-current]');
@@ -140,6 +279,9 @@
       if (contextTypeInput) contextTypeInput.value = '';
       if (entityIdInput) entityIdInput.value = '';
       if (contextJsonInput) contextJsonInput.value = '';
+      selectedContext = null;
+      searchInput.value = '';
+      renderSearchMenu();
       render();
       return;
     }
