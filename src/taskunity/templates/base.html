@@ -682,7 +682,7 @@
           var taskId = taskIdFromPanelUrl(panelUrl);
           if (taskId) {
             setGitSyncPanelTask(taskId);
-          } else if (/\/milestones\/[^/?]+\/panel(?:\?|$)/.test(panelUrl)) {
+          } else if (/\/(milestones|projects)\/[^/?]+\/panel(?:\?|$)/.test(panelUrl)) {
             setGitSyncPanelTask('');
           }
         }
@@ -717,7 +717,7 @@
             var taskId = taskIdFromPanelUrl(panelUrl);
             if (taskId) {
               setGitSyncPanelTask(taskId);
-            } else if (/\/milestones\/[^/?]+\/panel(?:\?|$)/.test(panelUrl)) {
+            } else if (/\/(milestones|projects)\/[^/?]+\/panel(?:\?|$)/.test(panelUrl)) {
               setGitSyncPanelTask('');
             }
           }

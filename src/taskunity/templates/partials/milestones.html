@@ -12,9 +12,9 @@
           class="milestone-list-item milestone-open-row {{ m.status }}"
           style="--ms-color: {{ m.color or '#3567e0' }}"
           hx-trigger="click"
-          hx-get="/partials/main?milestone={{ m.id }}&view=list{% if filters.show_closed %}&show_closed=1{% endif %}&stale_days={{ filters.stale_days }}"
-          hx-target="#app-main"
-          hx-swap="outerHTML"
+          hx-get="/milestones/{{ m.id }}/panel?view=milestones{% if filters.show_closed %}&show_closed=1{% endif %}&stale_days={{ filters.stale_days }}"
+          hx-target="#task-panel"
+          hx-swap="innerHTML"
           title="Open milestone view"
         >
           <div class="milestone-list-head">

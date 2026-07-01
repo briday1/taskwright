@@ -10,20 +10,14 @@
         {% set r = project_rollups.get(p.id, {'total': 0, 'done': 0, 'working': 0, 'progress': 0}) %}
         {% set p_state = 'done' if r.progress >= 100 and r.total > 0 else ('active' if r.working > 0 else 'planned') %}
         <div class="milestone-list-item compact milestone-open-row project-row" style="--ms-color: {{ p.color }}">
-          <form hx-get="/partials/main" hx-target="#app-main" hx-swap="outerHTML" class="project-open-form">
-            <input type="hidden" name="view" value="list">
-            <input type="hidden" name="project" value="{{ p.id }}">
-            {% if filters.date_from %}<input type="hidden" name="date_from" value="{{ filters.date_from }}">{% endif %}
-            {% if filters.date_to %}<input type="hidden" name="date_to" value="{{ filters.date_to }}">{% endif %}
-            {% if filters.q %}<input type="hidden" name="q" value="{{ filters.q }}">{% endif %}
-            <input type="hidden" name="stale_days" value="{{ filters.stale_days }}">
-            {% if filters.show_closed %}<input type="hidden" name="show_closed" value="1">{% endif %}
-            {% if filters.hide_done %}<input type="hidden" name="hide_done" value="1">{% endif %}
-            <button
-              type="submit"
-              class="project-open-btn"
-              title="View tasks for {{ p.name }}"
-            >
+          <button
+            type="button"
+            class="project-open-btn"
+            hx-get="/projects/{{ p.id }}/panel?view=projects{% if filters.show_closed %}&show_closed=1{% endif %}&stale_days={{ filters.stale_days }}"
+            hx-target="#task-panel"
+            hx-swap="innerHTML"
+            title="Open project details for {{ p.name }}"
+          >
               <div class="milestone-list-head">
                 <div class="milestone-list-title">
                   <span class="mc-flag" aria-hidden="true">◆</span>
@@ -37,8 +31,7 @@
                 </div>
               </div>
               {% if p.description %}<p class="mc-summary clamp-1">{{ p.description }}</p>{% endif %}
-            </button>
-          </form>
+          </button>
         </div>
       {% endfor %}
     </div>
