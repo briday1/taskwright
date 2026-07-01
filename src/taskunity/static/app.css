@@ -2006,7 +2006,7 @@ html[data-theme="dark"] .ai-msg-error { background: #3a1a18; border-color: #6b2d
 /* ── Project panel row ───────────────────────────────────────── */
 .project-row { display: flex; align-items: stretch; gap: 0; position: relative; }
 .project-open-form { flex: 1; margin: 0; display: flex; }
-.project-open-btn { flex: 1; text-align: left; background: transparent; border: none; cursor: pointer; padding: 0; }
+.project-open-btn { flex: 1; text-align: left; background: transparent; border: none; cursor: pointer; padding: 0; color: var(--text); }
 .project-filter-link-form { margin: 0; display: flex; }
 .project-filter-link { display: flex; align-items: center; padding: 0 .8rem; font-size: .78rem; color: var(--accent); text-decoration: none; border-left: 1px solid var(--line); flex-shrink: 0; white-space: nowrap; }
 .project-filter-link:hover { background: var(--accent-soft); }
