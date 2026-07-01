@@ -157,9 +157,67 @@
       })();
 
       (function () {
+        var AI_SETTINGS_KEY = 'taskunity.aiSettings';
+
+        function readAiSettings() {
+          try {
+            var raw = localStorage.getItem(AI_SETTINGS_KEY) || '{}';
+            var parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' ? parsed : {};
+          } catch (_) {
+            return {};
+          }
+        }
+
+        function writeAiSettings(data) {
+          try {
+            localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(data || {}));
+          } catch (_) {}
+        }
+
+        function applyAiSettings() {
+          var data = readAiSettings();
+          var settingsForm = document.getElementById('ai-settings-form');
+          var chatForm = document.getElementById('ai-chat-form');
+          var forms = [settingsForm, chatForm].filter(Boolean);
+          if (!forms.length) return;
+
+          var enabled = String(data.ai_enabled || '1') === '1';
+          forms.forEach(function (form) {
+            ['ai_base_url', 'ai_api_key', 'ai_model', 'ai_chat_path', 'ai_models_path', 'ai_timeout_seconds', 'ai_max_tokens', 'ai_temperature'].forEach(function (name) {
+              var field = form.querySelector('[name="' + name + '"]');
+              if (field && data[name] != null) field.value = String(data[name]);
+            });
+            var enabledField = form.querySelector('[name="ai_enabled"]');
+            if (enabledField) enabledField.checked = enabled;
+            var fieldsWrap = form.querySelector('#ai-settings-fields');
+            if (fieldsWrap) fieldsWrap.style.display = enabled ? '' : 'none';
+          });
+        }
+
+        function saveAiSettings() {
+          var form = document.getElementById('ai-settings-form');
+          if (!form) return;
+          var fd = new FormData(form);
+          var data = {
+            ai_enabled: fd.has('ai_enabled') ? '1' : '0',
+            ai_base_url: (fd.get('ai_base_url') || '').toString(),
+            ai_api_key: (fd.get('ai_api_key') || '').toString(),
+            ai_model: (fd.get('ai_model') || '').toString(),
+            ai_chat_path: (fd.get('ai_chat_path') || '').toString(),
+            ai_models_path: (fd.get('ai_models_path') || '').toString(),
+            ai_timeout_seconds: (fd.get('ai_timeout_seconds') || '30').toString(),
+            ai_max_tokens: (fd.get('ai_max_tokens') || '2048').toString(),
+            ai_temperature: (fd.get('ai_temperature') || '0.7').toString(),
+          };
+          writeAiSettings(data);
+          applyAiSettings();
+        }
+
         function aiBuildParams() {
           var form = document.getElementById('ai-settings-form');
           if (!form) return '';
+          applyAiSettings();
           var params = new URLSearchParams();
           var formData = new FormData(form);
           formData.forEach(function (value, key) {
@@ -229,11 +287,33 @@
           }
         });
 
+        document.addEventListener('input', function (e) {
+          if (!(e.target && e.target.closest && e.target.closest('#ai-settings-form'))) return;
+          saveAiSettings();
+        });
+
+        document.addEventListener('change', function (e) {
+          if (!(e.target && e.target.closest && e.target.closest('#ai-settings-form'))) return;
+          saveAiSettings();
+        });
+
+        document.addEventListener('submit', function (e) {
+          var form = e.target && e.target.closest ? e.target.closest('#ai-settings-form') : null;
+          if (!form) return;
+          saveAiSettings();
+        });
+
         document.addEventListener('change', function (e) {
           if (!(e.target && e.target.id === 'ai-model-select')) return;
           var modelInput = document.getElementById('ai-model-input');
           if (modelInput && e.target.value) modelInput.value = e.target.value;
         });
+
+        document.body.addEventListener('htmx:afterSwap', function () {
+          applyAiSettings();
+        });
+
+        applyAiSettings();
       })();
 
       function setProject(picker, value, color, label) {
@@ -504,6 +584,26 @@
         if (mode === 'task') applyTaskDraftToActionForm(form);
         if (mode === 'milestone') applyMilestoneDraftToActionForm(form);
       });
+      document.body.addEventListener('htmx:beforeRequest', function (e) {
+        var form = e && e.detail ? e.detail.elt : null;
+        if (!form || !form.matches || !form.matches('form[data-git-sync-form]')) return;
+        form.dataset.syncing = '1';
+        var button = form.querySelector('.git-sync-btn');
+        if (button) {
+          button.disabled = true;
+          button.setAttribute('aria-busy', 'true');
+        }
+      });
+      document.body.addEventListener('htmx:afterRequest', function (e) {
+        var form = e && e.detail ? e.detail.elt : null;
+        if (!form || !form.matches || !form.matches('form[data-git-sync-form]')) return;
+        delete form.dataset.syncing;
+        var button = form.querySelector('.git-sync-btn');
+        if (button) {
+          button.disabled = false;
+          button.removeAttribute('aria-busy');
+        }
+      });
 
       function setComposerTab(root, name) {
         if (!root) return;
@@ -549,6 +649,8 @@
       }
       var lastTaskPanelUrl = '';
       var lastTaskPanelRequestedAt = 0;
+      var preservedTaskPanelNode = null;
+      var preservedTaskPanelCollapsed = true;
       document.addEventListener('click', function (e) {
         var btn = e.target.closest('[data-panel-collapse]');
         if (!btn) return;
@@ -559,9 +661,11 @@
         if (!panelTrigger) return;
         expandTaskPanel();
         var panelUrl = panelTrigger.getAttribute('hx-get') || '';
-        if (/\/tasks\/[^/]+\/panel(?:\?|$)/.test(panelUrl)) {
+        if (panelUrl) {
           lastTaskPanelUrl = panelUrl;
           lastTaskPanelRequestedAt = Date.now();
+        }
+        if (/\/tasks\/[^/]+\/panel(?:\?|$)/.test(panelUrl)) {
           window.setTimeout(function () {
             var panel = document.getElementById('task-panel');
             if (!panel) return;
@@ -586,7 +690,7 @@
         }
         if (panelTarget === '#task-panel') {
           var panelUrl = ((source && source.getAttribute && source.getAttribute('hx-get')) || (trigger.getAttribute && trigger.getAttribute('hx-get')) || '');
-          if (/\/tasks\/[^/]+\/panel(?:\?|$)/.test(panelUrl)) {
+          if (panelUrl) {
             lastTaskPanelUrl = panelUrl;
             lastTaskPanelRequestedAt = Date.now();
           }
@@ -620,11 +724,27 @@
           lastTaskPanelRequestedAt = Date.now();
         }
       });
+      document.body.addEventListener('htmx:beforeSwap', function (e) {
+        var target = e && e.detail ? e.detail.target : null;
+        if (!target || target.id !== 'app-main') return;
+        var main = getMainLayout();
+        if (main) preservedTaskPanelCollapsed = main.classList.contains('panel-collapsed');
+        preservedTaskPanelNode = null;
+      });
       document.body.addEventListener('htmx:afterSwap', function (e) {
         var target = e && e.detail ? e.detail.target : null;
         if (!target || target.id !== 'app-main') return;
+        var main = getMainLayout();
+        var freshPanel = document.getElementById('task-panel');
+        if (main) {
+          main.classList.toggle('panel-collapsed', preservedTaskPanelCollapsed);
+        }
+        // Expand panel if the fresh panel has content (from selected_milestone or selected_task)
+        if (freshPanel && panelHasContent(freshPanel)) {
+          main.classList.remove('panel-collapsed');
+        }
         if (!lastTaskPanelUrl) return;
-        var panel = document.getElementById('task-panel');
+        var panel = freshPanel || document.getElementById('task-panel');
         if (!panel) return;
         var recentlyRequested = (Date.now() - lastTaskPanelRequestedAt) < 4500;
         if (!recentlyRequested) return;
@@ -807,10 +927,61 @@
       // --- AI Panel ---
       var AI_PANEL_OPEN_KEY = 'taskunity.aiPanelOpen';
       var AI_PANEL_URL_KEY = 'taskunity.aiPanelUrl';
+      var AI_PANEL_STATE_KEY = 'taskunity.aiPanelState';
       var AI_PANEL_GENERIC_URL = '/ai/panel';
       var lastAiPanelUrl = sessionStorage.getItem(AI_PANEL_URL_KEY) || '';
       var preservedAiPanelNode = null;
       var preservedAiPanelHidden = true;
+      function aiPanelStateKey(url) {
+        return AI_PANEL_STATE_KEY + ':' + encodeURIComponent(url || AI_PANEL_GENERIC_URL);
+      }
+      function currentAiHistoryValue(panel, msgs) {
+        var histInput = panel ? panel.querySelector('#ai-history') : null;
+        if (histInput && histInput.value) return histInput.value;
+        if (msgs && msgs.dataset && msgs.dataset.history) return msgs.dataset.history;
+        return '[]';
+      }
+      function saveAiPanelState(url) {
+        var panel = document.getElementById('ai-panel');
+        if (!panel) return;
+        var msgs = panel.querySelector('#ai-messages');
+        var form = panel.querySelector('#ai-chat-form');
+        if (!msgs && !form) return;
+        var extraContextInput = panel.querySelector('#ai-extra-context-json');
+        var textarea = panel.querySelector('textarea[name="user_message"]');
+        sessionStorage.setItem(aiPanelStateKey(url || lastAiPanelUrl), JSON.stringify({
+          messagesHtml: msgs ? msgs.innerHTML : '',
+          history: currentAiHistoryValue(panel, msgs),
+          extraContextJson: extraContextInput ? (extraContextInput.value || '[]') : '[]',
+          draft: textarea ? (textarea.value || '') : ''
+        }));
+      }
+      function restoreAiPanelState(url) {
+        var raw = sessionStorage.getItem(aiPanelStateKey(url || lastAiPanelUrl));
+        if (!raw) return;
+        var panel = document.getElementById('ai-panel');
+        if (!panel) return;
+        var msgs = panel.querySelector('#ai-messages');
+        var histInput = panel.querySelector('#ai-history');
+        var extraContextInput = panel.querySelector('#ai-extra-context-json');
+        var textarea = panel.querySelector('textarea[name="user_message"]');
+        try {
+          var state = JSON.parse(raw);
+          if (msgs) {
+            msgs.innerHTML = state.messagesHtml || '';
+            msgs.dataset.history = state.history || '[]';
+            msgs.scrollTop = msgs.scrollHeight;
+          }
+          if (histInput) histInput.value = state.history || '[]';
+          if (extraContextInput) extraContextInput.value = state.extraContextJson || '[]';
+          if (textarea) textarea.value = state.draft || '';
+        } catch (_) {
+          return;
+        }
+        if (window.taskunityAiRenderContextChips && typeof window.taskunityAiRenderContextChips === 'function') {
+          window.taskunityAiRenderContextChips();
+        }
+      }
       function resolveAiContextUrlFromTaskPanel() {
         var taskPanel = document.getElementById('task-panel');
         if (!taskPanel) return '';
@@ -867,19 +1038,24 @@
       function aiSyncPanelContext(nextUrl) {
         var panel = document.getElementById('ai-panel');
         if (!panel || !nextUrl) return;
+        if (lastAiPanelUrl) saveAiPanelState(lastAiPanelUrl);
         if (window.htmx && typeof window.htmx.ajax === 'function') {
           window.htmx.ajax('GET', nextUrl, { target: '#ai-panel', swap: 'innerHTML' });
         }
       }
       function syncAiContextFromCurrentPanel() {
         var main = getMainLayout();
+        var panel = document.getElementById('ai-panel');
         var shouldSyncNow = !!(main && !main.classList.contains('ai-panel-collapsed')) || sessionStorage.getItem(AI_PANEL_OPEN_KEY) === '1';
         var nextUrl = resolveAiContextUrlFromTaskPanel();
+        var currentUrl = lastAiPanelUrl || AI_PANEL_GENERIC_URL;
         syncAiToggleContextUrl(nextUrl);
         if (!nextUrl) {
-          lastAiPanelUrl = AI_PANEL_GENERIC_URL;
-          sessionStorage.setItem(AI_PANEL_URL_KEY, AI_PANEL_GENERIC_URL);
-          if (shouldSyncNow) {
+          nextUrl = AI_PANEL_GENERIC_URL;
+          lastAiPanelUrl = nextUrl;
+          sessionStorage.setItem(AI_PANEL_URL_KEY, nextUrl);
+          var shouldRefreshGenericPanel = shouldSyncNow && (!panelHasContent(panel) || currentUrl !== nextUrl);
+          if (shouldRefreshGenericPanel) {
             aiSyncPanelContext(AI_PANEL_GENERIC_URL);
           }
           return;
@@ -887,6 +1063,7 @@
         lastAiPanelUrl = nextUrl;
         sessionStorage.setItem(AI_PANEL_URL_KEY, nextUrl);
         if (!shouldSyncNow) return;
+        if (panelHasContent(panel) && currentUrl === nextUrl) return;
         aiSyncPanelContext(nextUrl);
       }
       function openAiPanel() {
@@ -907,6 +1084,7 @@
       function closeAiPanel() {
         var main = getMainLayout();
         var panel = document.getElementById('ai-panel');
+        saveAiPanelState(lastAiPanelUrl || AI_PANEL_GENERIC_URL);
         if (main) main.classList.add('ai-panel-collapsed');
         sessionStorage.setItem(AI_PANEL_OPEN_KEY, '0');
         if (panel) panel.hidden = true;
@@ -954,6 +1132,7 @@
         var target = (source && source.getAttribute ? source.getAttribute('hx-target') : null) || (trigger.getAttribute && trigger.getAttribute('hx-target'));
         if (target !== '#ai-panel' && !source) return;
         var panelUrl = ((source && source.getAttribute && source.getAttribute('hx-get')) || (trigger.getAttribute && trigger.getAttribute('hx-get')) || '');
+        if (lastAiPanelUrl) saveAiPanelState(lastAiPanelUrl);
         if (panelUrl) {
           lastAiPanelUrl = panelUrl;
           sessionStorage.setItem(AI_PANEL_URL_KEY, panelUrl);
@@ -968,6 +1147,7 @@
           preservedAiPanelNode = null;
           return;
         }
+        saveAiPanelState(lastAiPanelUrl || AI_PANEL_GENERIC_URL);
         preservedAiPanelNode = panel;
         preservedAiPanelHidden = panel.hidden;
         panel.remove();
@@ -977,6 +1157,7 @@
         if (!target) return;
         var panel = target.id === 'ai-panel' ? target : (target.closest ? target.closest('#ai-panel') : null);
         if (!panel) return;
+        restoreAiPanelState(lastAiPanelUrl || AI_PANEL_GENERIC_URL);
         openAiPanel();
         updateAiPanelToggle();
       });
@@ -1043,6 +1224,7 @@
         msgs.appendChild(userMsg);
         msgs.scrollTop = msgs.scrollHeight;
         if (ta) ta.value = '';
+        saveAiPanelState(lastAiPanelUrl || AI_PANEL_GENERIC_URL);
       });
       document.body.addEventListener('htmx:afterRequest', function (e) {
         var form = e && e.detail ? e.detail.elt : null;
@@ -1051,6 +1233,7 @@
         var histInput = document.getElementById('ai-history');
         if (!msgs || !histInput) return;
         histInput.value = msgs.dataset.history || histInput.value || '[]';
+        saveAiPanelState(lastAiPanelUrl || AI_PANEL_GENERIC_URL);
       });
       // Load model list into the datalist when user clicks the ↻ button
       document.addEventListener('click', function (e) {
@@ -1065,6 +1248,19 @@
 
       syncAiContextFromCurrentPanel();
       updateAiPanelToggle();
+
+      // Auto-hide sync indicator after git sync completes
+      document.addEventListener('htmx:afterRequest', function (e) {
+        var form = e && e.detail && e.detail.xhr && e.detail.xhr.response;
+        var target = e && e.detail ? e.detail.target : null;
+        // Only hide indicator if this was a git sync request (target is #app-main from git-sync-form)
+        if (!target || target.id !== 'app-main') return;
+        var indicator = document.getElementById('git-sync-indicator');
+        if (!indicator) return;
+        setTimeout(function () {
+          indicator.style.display = 'none';
+        }, 1500);
+      });
     })();
   </script>
 </body>

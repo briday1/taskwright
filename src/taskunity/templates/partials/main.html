@@ -153,11 +153,12 @@
             <span class="git-badge warn" title="No upstream remote configured">no remote</span>
           {% endif %}
           {% if git.dirty %}<span class="git-badge dirty" title="{{ git.dirty }} uncommitted change(s)">●{{ git.dirty }}</span>{% endif %}
-          <form hx-post="/git/sync" hx-target="#app-main" hx-swap="outerHTML" class="git-sync-form">
+          <form hx-post="/git/sync" hx-target="#app-main" hx-swap="outerHTML" hx-indicator="#git-sync-indicator" class="git-sync-form" data-git-sync-form>
             {% for p in filters.projects %}<input type="hidden" name="f_project" value="{{ p }}">{% endfor %}
             <input type="hidden" name="f_from" value="{{ filters.date_from }}">
             <input type="hidden" name="f_to" value="{{ filters.date_to }}">
             <input type="hidden" name="f_q" value="{{ filters.q }}">
+            <input type="hidden" name="f_panel_task" value="{{ filters.panel_task }}">
             <input type="hidden" name="f_view" value="{{ filters.view }}">
             <input type="hidden" name="f_sort" value="{{ filters.sort }}">
             <input type="hidden" name="f_sort_dir" value="{{ filters.sort_dir }}">
@@ -167,7 +168,10 @@
             <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
             <input type="hidden" name="f_calendar_month" value="{{ filters.calendar_month }}">
             <input type="hidden" name="f_calendar_year" value="{{ filters.calendar_year }}">
-            <button type="submit" class="git-sync-btn" title="Commit local changes, pull, and push">Sync</button>
+            <button type="submit" class="git-sync-btn" title="Commit local changes, pull, and push">
+              <span class="git-sync-label">Sync</span>
+              <span class="git-sync-working">Syncing…</span>
+            </button>
           </form>
         {% else %}
           <span class="git-branch">No git repo</span>
@@ -175,8 +179,9 @@
       </div>
     </div>
 
-    {% if git_message %}
-      <div class="git-toast" role="status">
+    {% if git_message and git_message_level == 'error' %}
+      <div class="git-toast error" role="alert">
+        <span class="git-toast-state" aria-hidden="true">⚠</span>
         <span class="git-toast-msg">{{ git_message }}</span>
         <button type="button" class="git-toast-close" aria-label="Dismiss" onclick="this.closest('.git-toast').remove()">×</button>
       </div>
@@ -211,7 +216,7 @@
     </div>
     </div>
 
-    {% if selected_milestone and filters.view != 'milestones' %}
+    {% if selected_milestone and filters.view != 'milestones' and filters.view != 'projects' %}
       {% include "partials/milestone_banner.html" %}
     {% endif %}
 
@@ -291,3 +296,4 @@
   ></button>
   <aside id="ai-panel" class="ai-panel" hidden></aside>
 </main>
+<span id="git-sync-indicator" class="git-sync-indicator htmx-indicator" role="status" aria-live="polite">Syncing…</span>

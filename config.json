@@ -2,14 +2,5 @@
   "app_name": "Taskunity",
   "workspace_name": "Taskwright",
   "workspace_description": "Local file-backed workspace/task tracker",
-  "export_title": "Taskwright",
-  "ai_enabled": "1",
-  "ai_base_url": "https://api.genai.mil/v1",
-  "ai_api_key": "STARK_UaEqHRUVsypMacozjudJQOUQ8ljNv1kiQkcemnvsHg8",
-  "ai_model": "gemini-3.1-pro-preview",
-  "ai_timeout_seconds": "30",
-  "ai_max_tokens": "2048",
-  "ai_temperature": "0.7",
-  "ai_chat_path": "",
-  "ai_models_path": ""
+  "export_title": "Taskwright"
 }

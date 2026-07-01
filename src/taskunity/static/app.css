@@ -696,8 +696,11 @@ button:focus-visible { outline: none; box-shadow: var(--ring); }
 .git-badge.dirty { background: #fceae7; color: var(--blocked); }
 .git-badge.ok { background: #e6f5ec; color: var(--done); }
 .git-badge.warn { background: var(--bg-soft); color: var(--muted); }
-.git-sync-form { display: inline; margin: 0; }
+.git-sync-form { display: inline-flex; align-items: center; margin: 0; }
 .git-sync-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
   background: var(--accent);
   color: #fff;
   border: none;
@@ -706,6 +709,21 @@ button:focus-visible { outline: none; box-shadow: var(--ring); }
   font-size: .74rem;
   font-weight: 700;
   box-shadow: var(--shadow-sm);
+}
+.git-sync-btn[disabled] { opacity: .78; cursor: progress; }
+.git-sync-label { display: inline; }
+.git-sync-working { display: none !important; }
+.git-sync-form.htmx-request .git-sync-label { display: none; }
+.git-sync-form.htmx-request .git-sync-working { display: inline !important; }
+.git-sync-indicator {
+  display: none;
+  align-items: center;
+  font-size: .74rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.git-sync-indicator.htmx-request {
+  display: inline-flex;
 }
 .git-sync-btn.secondary {
   background: var(--bg-soft);
@@ -726,6 +744,16 @@ button:focus-visible { outline: none; box-shadow: var(--ring); }
   font-size: .84rem;
   box-shadow: var(--shadow-sm);
   animation: toastIn .25s ease both, toastOut .4s ease 6s forwards;
+}
+.git-toast.success { border-left-color: var(--done); }
+.git-toast.error {
+  border-left-color: var(--blocked);
+  background: linear-gradient(180deg, #fff1ef, var(--card));
+}
+.git-toast-state {
+  flex: none;
+  font-size: .9rem;
+  font-weight: 800;
 }
 .git-toast-msg { flex: 1; }
 .git-toast-close {
@@ -1845,7 +1873,52 @@ html[data-theme="dark"] .cal-date {
   letter-spacing: .045em;
 }
 .ai-context-add-wrap { display: grid; gap: .35rem; }
-.ai-context-add-controls { display: grid; grid-template-columns: .9fr 1.4fr auto; gap: .35rem; align-items: center; }
+.ai-context-add-controls { display: grid; grid-template-columns: .9fr 1.6fr auto; gap: .35rem; align-items: center; }
+.ai-context-search-wrap { position: relative; }
+.ai-context-search-input { width: 100%; }
+.ai-context-search-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + .2rem);
+  z-index: 20;
+  max-height: 12rem;
+  overflow: auto;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+}
+.ai-context-search-item,
+.ai-context-search-empty {
+  display: flex;
+  justify-content: space-between;
+  gap: .5rem;
+  width: 100%;
+  padding: .5rem .65rem;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  font-weight: 500;
+}
+.ai-context-search-item:hover,
+.ai-context-search-item.is-selected {
+  background: var(--bg-soft);
+  color: var(--text);
+}
+.ai-context-search-item-main {
+  min-width: 0;
+}
+.ai-context-search-item-kind,
+.ai-context-search-empty {
+  color: var(--muted);
+  font-size: .72rem;
+  text-transform: capitalize;
+  letter-spacing: .01em;
+  white-space: nowrap;
+}
 .ai-context-chips { display: flex; flex-wrap: wrap; gap: .35rem; }
 .ai-context-chip {
   display: inline-flex;
@@ -1925,6 +1998,7 @@ html[data-theme="dark"] .ai-msg-error { background: #3a1a18; border-color: #6b2d
 
 /* ── Project panel row ───────────────────────────────────────── */
 .project-row { display: flex; align-items: stretch; gap: 0; position: relative; }
+.project-open-form { flex: 1; margin: 0; display: flex; }
 .project-open-btn { flex: 1; text-align: left; background: transparent; border: none; cursor: pointer; padding: 0; }
 .project-filter-link-form { margin: 0; display: flex; }
 .project-filter-link { display: flex; align-items: center; padding: 0 .8rem; font-size: .78rem; color: var(--accent); text-decoration: none; border-left: 1px solid var(--line); flex-shrink: 0; white-space: nowrap; }

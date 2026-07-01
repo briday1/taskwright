@@ -260,17 +260,16 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
         }
 
     def ai_config() -> dict[str, str]:
-        config = load_workspace_config(workspace)
         return {
-            "ai_enabled": config.get("ai_enabled", "0"),
-            "ai_base_url": config.get("ai_base_url", ""),
-            "ai_api_key": config.get("ai_api_key", ""),
-            "ai_model": config.get("ai_model", ""),
-            "ai_chat_path": config.get("ai_chat_path", ""),
-            "ai_models_path": config.get("ai_models_path", ""),
-            "ai_timeout_seconds": config.get("ai_timeout_seconds", "30"),
-            "ai_max_tokens": config.get("ai_max_tokens", "2048"),
-            "ai_temperature": config.get("ai_temperature", "0.7"),
+            "ai_enabled": "1",
+            "ai_base_url": "",
+            "ai_api_key": "",
+            "ai_model": "",
+            "ai_chat_path": "",
+            "ai_models_path": "",
+            "ai_timeout_seconds": "30",
+            "ai_max_tokens": "2048",
+            "ai_temperature": "0.7",
         }
 
     def _ai_config_from_query(request: Request) -> dict[str, str]:
@@ -1159,6 +1158,7 @@ Rules:
         calendar_month: int | None = None,
         calendar_year: int | None = None,
         git_message: str = "",
+        git_message_level: str = "",
     ) -> dict:
         projects = [p for p in (projects or []) if p]
         q = (q or "").strip()
@@ -1347,6 +1347,7 @@ Rules:
             "git": git_status(workspace),
             "git_lfs": git_lfs_status(workspace),
             "git_message": git_message,
+            "git_message_level": git_message_level,
             "task_activity_entries": build_task_activity_entries(selected_task),
             "task_index": [
                 {
@@ -1441,6 +1442,7 @@ Rules:
         hide_old: str = "",
         hide_done: str = "",
         stale_days: str = "",
+        panel_task: str = "",
     ) -> HTMLResponse:
         return templates.TemplateResponse(
             request,
@@ -2637,19 +2639,30 @@ Rules:
         f_from: str = Form(""),
         f_to: str = Form(""),
         f_q: str = Form(""),
+        f_panel_task: str = Form(""),
         f_view: str = Form("list"),
         f_sort: str = Form("priority"),
         f_sort_dir: str = Form(""),
         f_milestone: str = Form(""),
         f_show_closed: str = Form(""),
+        f_hide_done: str = Form(""),
         f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
+        f_calendar_month: str = Form(""),
+        f_calendar_year: str = Form(""),
     ) -> HTMLResponse:
         result = git_sync(workspace)
+        selected_task = None
+        if f_panel_task:
+            try:
+                selected_task = load_task(workspace, f_panel_task)
+            except Exception:
+                selected_task = None
         return templates.TemplateResponse(
             request,
             "partials/main.html",
             context(
                 request,
+                selected_task=selected_task,
                 projects=f_project,
                 date_from=f_from,
                 date_to=f_to,
@@ -2659,8 +2672,12 @@ Rules:
                 view=f_view,
                 milestone=f_milestone,
                 show_closed=parse_toggle(f_show_closed),
+                hide_done=parse_toggle(f_hide_done),
                 stale_days=parse_stale_days(f_stale_days),
+                calendar_month=parse_calendar_month(f_calendar_month),
+                calendar_year=parse_calendar_year(f_calendar_year),
                 git_message=result["message"],
+                git_message_level="success" if result["ok"] else "error",
             ),
         )
 
@@ -2800,31 +2817,9 @@ Rules:
     @app.post("/settings/save", response_class=HTMLResponse)
     def settings_save_route(
         request: Request,
-        ai_enabled: str = Form("0"),
-        ai_base_url: str = Form(""),
-        ai_api_key: str = Form(""),
-        ai_model: str = Form(""),
-        ai_chat_path: str = Form(""),
-        ai_models_path: str = Form(""),
-        ai_timeout_seconds: str = Form("30"),
-        ai_max_tokens: str = Form("2048"),
-        ai_temperature: str = Form("0.7"),
     ) -> HTMLResponse:
-        save_workspace_config(workspace, {
-            "ai_enabled": "1" if ai_enabled in {"1", "on", "true", "yes"} else "0",
-            "ai_base_url": ai_base_url.strip(),
-            "ai_api_key": ai_api_key.strip(),
-            "ai_model": ai_model.strip(),
-            "ai_chat_path": ai_chat_path.strip(),
-            "ai_models_path": ai_models_path.strip(),
-            "ai_timeout_seconds": ai_timeout_seconds.strip() or "30",
-            "ai_max_tokens": ai_max_tokens.strip() or "2048",
-            "ai_temperature": ai_temperature.strip() or "0.7",
-        })
-        cfg = ai_config()
         return HTMLResponse(
-            '<div id="ai-settings-status" class="ai-save-ok">✓ AI settings saved.</div>'
-            f'<input type="hidden" id="ai-enabled-state" value="{cfg["ai_enabled"]}">'
+            '<div id="ai-settings-status" class="ai-save-ok">✓ AI settings saved in browser.</div>'
         )
 
     @app.get("/ai/models", response_class=HTMLResponse)
@@ -3072,6 +3067,15 @@ Rules:
     @app.post("/ai/chat", response_class=HTMLResponse)
     async def ai_chat_route(
         request: Request,
+        ai_enabled: str = Form("0"),
+        ai_base_url: str = Form(""),
+        ai_api_key: str = Form(""),
+        ai_model: str = Form(""),
+        ai_chat_path: str = Form(""),
+        ai_models_path: str = Form(""),
+        ai_timeout_seconds: str = Form("30"),
+        ai_max_tokens: str = Form("2048"),
+        ai_temperature: str = Form("0.7"),
         context_type: str = Form(...),
         entity_id: str = Form(...),
         user_message: str = Form(...),
@@ -3083,7 +3087,17 @@ Rules:
         f_show_closed: str = Form(""),
         f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
     ) -> HTMLResponse:
-        cfg = ai_config()
+        cfg = {
+            "ai_enabled": "1" if ai_enabled in {"1", "on", "true", "yes"} else "0",
+            "ai_base_url": ai_base_url.strip(),
+            "ai_api_key": ai_api_key.strip(),
+            "ai_model": ai_model.strip(),
+            "ai_chat_path": ai_chat_path.strip(),
+            "ai_models_path": ai_models_path.strip(),
+            "ai_timeout_seconds": ai_timeout_seconds.strip() or "30",
+            "ai_max_tokens": ai_max_tokens.strip() or "2048",
+            "ai_temperature": ai_temperature.strip() or "0.7",
+        }
 
         if cfg["ai_enabled"] != "1":
             return HTMLResponse(_ai_error_html("AI is not enabled. Configure it in ⚙ Settings."))
@@ -4025,4 +4039,3 @@ Rules:
         )
 
     return app
-
