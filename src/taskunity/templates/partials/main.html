@@ -2,6 +2,11 @@
   <section class="content">
     <div class="content-toolbar">
     <div class="filter-bar">
+      <div class="export-group">
+        <span class="export-label">Export</span>
+        <a class="btn-link export-btn" href="/export/csv{% if filters.query %}?{{ filters.query }}{% endif %}">.csv</a>
+        <a class="btn-link export-btn" href="/export/json{% if filters.query %}?{{ filters.query }}{% endif %}">.json</a>
+      </div>
       <details class="filter-menu">
         <summary>
           <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4 2v-8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
@@ -129,55 +134,6 @@
       </div>
 
       <span class="spacer"></span>
-      {% if ai_enabled == '1' %}
-        {% set ai_context_url = '' %}
-        {% if selected_task %}
-          {% set ai_context_url = '/ai/panel/task/' ~ selected_task.id ~ '?view=' ~ filters.view ~ '&milestone=' ~ filters.milestone ~ (('&show_closed=1') if filters.show_closed else '') ~ '&stale_days=' ~ filters.stale_days %}
-        {% elif selected_milestone %}
-          {% set ai_context_url = '/ai/panel/milestone/' ~ selected_milestone.id ~ '?view=' ~ filters.view ~ (('&show_closed=1') if filters.show_closed else '') ~ '&stale_days=' ~ filters.stale_days %}
-        {% endif %}
-        <button type="button" class="btn-link ai-panel-toggle" data-ai-panel-toggle data-ai-context-url="{{ ai_context_url }}" title="Toggle AI assistant" aria-label="Toggle AI assistant">🤖</button>
-      {% endif %}
-      <a class="btn-link" href="/export/csv{% if filters.query %}?{{ filters.query }}{% endif %}">Export CSV</a>
-      <a class="btn-link" href="/export/json{% if filters.query %}?{{ filters.query }}{% endif %}">Export JSON</a>
-
-      <div class="git-chip{% if not git.tracked %} untracked{% endif %}" title="{% if git.tracked %}Branch {{ git.branch }}{% if git.upstream %} → {{ git.upstream }}{% endif %}{% else %}{{ git.message or 'This workspace is not inside a git repository' }}{% endif %}">
-        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M12 3v12m0 0a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm0-12a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm6 6a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm0 0c0 3-2 4-6 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        {% if git.tracked %}
-          <span class="git-branch">{{ git.branch or 'detached' }}</span>
-          {% if git.upstream %}
-            {% if git.ahead %}<span class="git-badge ahead" title="{{ git.ahead }} commit(s) ahead of {{ git.upstream }}">↑{{ git.ahead }}</span>{% endif %}
-            {% if git.behind %}<span class="git-badge behind" title="{{ git.behind }} commit(s) behind {{ git.upstream }}">↓{{ git.behind }}</span>{% endif %}
-            {% if git.dirty %}<span class="git-badge dirty" title="{{ git.dirty }} uncommitted change(s)">●{{ git.dirty }}</span>{% endif %}
-            {% if not git.ahead and not git.behind and not git.dirty %}<span class="git-badge ok" title="Up to date with {{ git.upstream }}">synced</span>{% endif %}
-          {% else %}
-            <span class="git-badge warn" title="No upstream remote configured">no remote</span>
-          {% endif %}
-          <span class="git-live-spinner" aria-hidden="true"></span>
-          <form hx-post="/git/sync" hx-target="#app-main" hx-swap="outerHTML" class="git-sync-form" data-git-sync-form>
-            {% for p in filters.projects %}<input type="hidden" name="f_project" value="{{ p }}">{% endfor %}
-            <input type="hidden" name="f_from" value="{{ filters.date_from }}">
-            <input type="hidden" name="f_to" value="{{ filters.date_to }}">
-            <input type="hidden" name="f_q" value="{{ filters.q }}">
-            <input type="hidden" name="f_panel_task" value="{{ filters.panel_task }}">
-            <input type="hidden" name="f_view" value="{{ filters.view }}">
-            <input type="hidden" name="f_sort" value="{{ filters.sort }}">
-            <input type="hidden" name="f_sort_dir" value="{{ filters.sort_dir }}">
-            <input type="hidden" name="f_milestone" value="{{ filters.milestone }}">
-            <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
-            <input type="hidden" name="f_hide_done" value="{% if filters.hide_done %}1{% endif %}">
-            <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
-            <input type="hidden" name="f_calendar_month" value="{{ filters.calendar_month }}">
-            <input type="hidden" name="f_calendar_year" value="{{ filters.calendar_year }}">
-            <button type="submit" class="git-sync-btn" title="Commit local changes, pull, and push">
-              <span class="git-sync-label">Sync</span>
-              <span class="git-sync-working">Syncing…</span>
-            </button>
-          </form>
-        {% else %}
-          <span class="git-branch">No git repo</span>
-        {% endif %}
-      </div>
     </div>
 
     {% if git_message and git_message_level == 'error' %}
@@ -297,3 +253,4 @@
   ></button>
   <aside id="ai-panel" class="ai-panel" hidden></aside>
 </main>
+{% if hx_request %}{% with git_chip_oob = true %}{% include "partials/git_chip.html" %}{% endwith %}{% endif %}

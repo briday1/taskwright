@@ -978,55 +978,23 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
     _MAX_TASK_SUMMARY_LENGTH = 500
 
     SYSTEM_PROMPT = """\
-You are Taskunity AI, an assistant embedded in the Taskunity app.
+You are Taskunity AI, a read-only assistant embedded in the Taskunity app.
+
+Your job is to answer the user's questions and give feedback about their work.
+You do NOT take actions or edit anything — you only discuss and advise.
 
 Rules:
-- Use only the provided context JSON for the current task or milestone.
-- Do not invent task IDs, checklist items, dates, dependencies, or status values.
-- Be concrete and app-aware: reference existing task fields and current checklist items.
-
-Taskunity actions available from your response:
-1) Create tasks from `suggested_tasks` (for milestone planning).
-2) Append checklist items from `suggested_checklist_items` (for task context).
-3) Save a note from `suggested_note` (task or milestone context).
-4) Propose file edits via `suggested_file_edits` for this utility layer to apply.
-
-When the user asks for actionable updates, ALWAYS include a JSON block with any relevant fields:
-
-```json
-{
-    "suggested_tasks": [
-        {"title": "...", "summary": "...", "priority": "low|normal|high|critical"}
-    ],
-    "suggested_checklist_items": ["item 1", "item 2"],
-        "suggested_note": "...",
-        "suggested_file_edits": [
-            {
-                "path": "relative/path/file.txt",
-                "create_if_missing": false,
-                "write_content": "optional full file content",
-                "append_text": "optional text to append",
-                "json_merge": {"optional": "json object to deep-merge"},
-                "edits": [
-                    {"find": "exact old text", "replace": "new text"}
-                ]
-            }
-        ]
-}
-```
-
-For `suggested_file_edits`:
-- Use workspace-relative paths.
-- Prefer `edits` with exact `find`/`replace` when confident.
-- Use `write_content` when replacing whole file.
-- Use `json_merge` for JSON config-like updates.
-- Never propose paths outside the workspace.
-
-Guidance:
-- In task context, prioritize `suggested_checklist_items` and `suggested_note`.
-- In milestone context, prioritize `suggested_tasks` and optionally `suggested_note`.
-- Keep prose concise, then provide machine-usable JSON.
-- If information is missing, state assumptions briefly and still provide best-effort structured output."""
+- Use the provided context JSON (the current task/project/milestone plus any
+  additional context the user attached) as the primary source of truth.
+- Do not invent task IDs, checklist items, dates, dependencies, or status values
+  that are not present in the context.
+- When several context items are provided, consider all of them and reference
+  them by name where helpful.
+- Be concrete and app-aware: refer to existing fields, checklist items, and
+  relationships from the context.
+- Keep answers concise and use Markdown (lists, short paragraphs) for readability.
+- If information is missing, say so briefly and answer as best you can with what
+  is provided. Do not ask the user to let you make changes — you cannot."""
 
     DEFAULT_TASKUNITY_ASSISTANT_SPEC = """\
 Taskunity Runtime Spec (authoritative for assistant behavior)
@@ -1372,6 +1340,7 @@ Rules:
             "request": request,
             "app_name": config["app_name"],
             "workspace_name": config["workspace_name"],
+            "hx_request": request.headers.get("hx-request") == "true",
             "model": dashboard_model(filtered),
             "statuses": STATUSES,
             "selected_task": selected_task,
@@ -3281,7 +3250,6 @@ Rules:
         )
         messages: list[dict[str, str]] = [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "system", "content": TASKUNITY_ASSISTANT_SPEC},
         ]
         # Include prior turns (skip system messages already in history)
         for msg in history_msgs:
@@ -3289,350 +3257,10 @@ Rules:
                 messages.append({"role": msg["role"], "content": msg["content"]})
         messages.append({"role": "user", "content": user_content})
 
-        def _best_history_checklist_items(task_title_value: str) -> list[str]:
-            scored: list[tuple[int, int, list[str]]] = []
-            for idx, msg in enumerate(history_msgs[-24:]):
-                if msg.get("role") != "assistant":
-                    continue
-                chunk = str(msg.get("content") or "").strip()
-                if not chunk:
-                    continue
-                extracted = _extract_checklist_items(chunk, task_title_value)
-                if not extracted:
-                    continue
-                lowered = chunk.lower()
-                score = len(extracted) * 3
-                if "checklist" in lowered and any(k in lowered for k in ("proposed", "revised", "updated", "phase")):
-                    score += 6
-                if "[ ]" in chunk or "`[ ]`" in chunk:
-                    score += 3
-                if any(k in lowered for k in ("what to provide", "please let me know how you'd like to proceed", "i need a few more details")):
-                    score -= 9
-                scored.append((score, idx, extracted))
-
-            if not scored:
-                return []
-            scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
-            best_score, _, best_items = scored[0]
-            return best_items if best_score > 0 else []
-
-        def _normalize_items(raw_items: list[str] | tuple[str, ...] | None) -> list[str]:
-            if not isinstance(raw_items, (list, tuple)):
-                return []
-            dedupe: list[str] = []
-            seen: set[str] = set()
-            for item in raw_items:
-                text = str(item).strip()
-                key = text.lower()
-                if not text or key in seen:
-                    continue
-                seen.add(key)
-                dedupe.append(text)
-            return dedupe
-
-        def _current_user_refers_to_prior_list() -> bool:
-            return bool(
-                re.search(r"\b(those|that|them|the above|prior|previous)\b", user_message or "", re.IGNORECASE)
-                and re.search(r"\b(checklist|list|items|tasks)\b", user_message or "", re.IGNORECASE)
-            )
-
-        def _wants_checklist_update_intent() -> bool:
-            if context_type != "task":
-                return False
-            msg = user_message or ""
-            has_action = bool(re.search(r"\b(update|apply|set|rewrite|replace|revise|make|use|put|do|yes|yep|yeah|ok)\b", msg, re.IGNORECASE))
-            if not has_action:
-                return False
-
-            def _recent_assistant_has_checklist_proposal() -> bool:
-                for hist in reversed(history_msgs[-14:]):
-                    if hist.get("role") != "assistant":
-                        continue
-                    chunk = str(hist.get("content") or "")
-                    if not chunk:
-                        continue
-                    if "checklist" in chunk.lower() and _extract_checklist_items(chunk):
-                        return True
-                return False
-
-            # Direct intent: user mentions checklist/tasks explicitly.
-            if re.search(r"\b(checklist|tasks?)\b", msg, re.IGNORECASE):
-                return True
-
-            # Plain confirmations ("yes", "ok", "yeah") should apply if a recent checklist proposal exists.
-            if re.search(r"^\s*(yes|yep|yeah|ok|okay|do it|go ahead|sounds good)\s*[.!]*\s*$", msg, re.IGNORECASE):
-                return _recent_assistant_has_checklist_proposal()
-
-            # Deictic intent: "use/update with those/them/that" and recent assistant checklist proposal exists.
-            refers_deictic = bool(re.search(r"\b(those|them|that|these|it)\b", msg, re.IGNORECASE))
-            if not refers_deictic:
-                return False
-            return _recent_assistant_has_checklist_proposal()
-
-        def _looks_like_clarification_response(text: str) -> bool:
-            lowered = (text or "").strip().lower()
-            if not lowered:
-                return False
-            return any(
-                phrase in lowered
-                for phrase in (
-                    "clarification needed",
-                    "could you please clarify",
-                    "what to provide",
-                    "most likely options",
-                    "option a",
-                    "option b",
-                    "option c",
-                    "let me know which",
-                    "i need a few more details",
-                )
-            )
-
-        intent_contract_cache: dict | None = None
-
-        def _resolve_intent_contract(task_title_value: str) -> dict:
-            nonlocal intent_contract_cache
-            if intent_contract_cache is not None:
-                return intent_contract_cache
-
-            recent_turns: list[str] = []
-            for msg in history_msgs[-14:]:
-                role = msg.get("role")
-                if role not in {"user", "assistant"}:
-                    continue
-                content = str(msg.get("content") or "").strip()
-                if not content:
-                    continue
-                recent_turns.append(f"{role}: {content[:1400]}")
-
-            payload = (
-                f"Context type: {context_type}\n"
-                f"Entity id: {entity_id}\n"
-                f"Task title: {task_title_value}\n"
-                f"Latest user message: {user_message}\n"
-                "Recent conversation:\n"
-                + "\n".join(recent_turns)
-            )
-            resolver_prompt = (
-                "Resolve user intent and referenced actionable content using the intent contract. "
-                "Return strict JSON object only."
-            )
-            try:
-                resolved_resp = _ai_call(
-                    [
-                        {"role": "system", "content": TASKUNITY_INTENT_SPEC},
-                        {"role": "system", "content": TASKUNITY_ASSISTANT_SPEC},
-                        {"role": "system", "content": resolver_prompt},
-                        {"role": "user", "content": payload},
-                    ],
-                    cfg,
-                    max_tokens=420,
-                    temperature=0.0,
-                )
-                resolved_text = str(resolved_resp["choices"][0]["message"]["content"])
-                parsed = _parse_json_object_from_text(resolved_text)
-                intent_contract_cache = parsed if isinstance(parsed, dict) else {}
-                return intent_contract_cache
-            except Exception:
-                intent_contract_cache = {}
-                return intent_contract_cache
-
-        def _local_checklist_fallback_response() -> HTMLResponse | None:
-            if context_type != "task":
-                return None
-
-            task_title = ""
-            try:
-                task_title = load_task(workspace, entity_id).title
-            except Exception:
-                task_title = ""
-
-            contract = _resolve_intent_contract(task_title)
-            intent_obj = contract.get("intent") if isinstance(contract, dict) else None
-            fallback_items: list[str] = []
-            checklist_mode = "add"
-            if isinstance(intent_obj, dict):
-                kind = str(intent_obj.get("kind", "")).strip().lower()
-                try:
-                    confidence = float(intent_obj.get("confidence", 0.0) or 0.0)
-                except (TypeError, ValueError):
-                    confidence = 0.0
-                mode = str(intent_obj.get("mode", "")).strip().lower()
-                if mode in {"add", "replace"}:
-                    checklist_mode = mode
-                resolved_items = _normalize_items(contract.get("resolved_checklist_items"))
-                if kind == "update_checklist" and confidence >= 0.45 and resolved_items:
-                    fallback_items = resolved_items
-
-            if not fallback_items and not _wants_checklist_update_intent():
-                return None
-
-            if not fallback_items:
-                fallback_items = _best_history_checklist_items(task_title)
-            if not fallback_items:
-                return None
-
-            if checklist_mode not in {"add", "replace"}:
-                checklist_mode = "add"
-            if checklist_mode == "add" and re.search(r"\b(rewrite|replace|revise|overhaul|restructure|new checklist)\b", user_message or "", re.IGNORECASE):
-                checklist_mode = "replace"
-
-            return _render_checklist_suggestion_from_items(
-                fallback_items,
-                checklist_mode,
-                "AI endpoint is currently unavailable. Using the latest checklist proposal from this chat so you can still preview and apply changes.",
-            )
-
-        def _render_checklist_suggestion_from_items(
-            items: list[str],
-            checklist_mode: str,
-            display_text: str,
-        ) -> HTMLResponse:
-            synthetic_reply = display_text + "\n\n" + "\n".join(f"- {item}" for item in items)
-            new_history = list(history_msgs)
-            new_history.append({"role": "user", "content": user_message})
-            new_history.append({"role": "assistant", "content": synthetic_reply})
-            history_json = json.dumps(new_history)
-            rendered_md = markdown_lib.markdown(display_text, extensions=["extra", "sane_lists"])
-            return HTMLResponse(
-                templates.get_template("partials/ai_message.html").render({
-                    "reply_html": rendered_md,
-                    "has_tasks": False,
-                    "has_checklist": True,
-                    "has_note": False,
-                    "has_file_edits": False,
-                    "tasks_json": "[]",
-                    "checklist_json": json.dumps(items),
-                    "checklist_mode": checklist_mode,
-                    "note_text": "",
-                    "file_edits_json": "[]",
-                    "entity_id": entity_id,
-                    "context_type": context_type,
-                    "history_json": history_json,
-                    "f_view": f_view,
-                    "f_milestone": f_milestone,
-                    "f_show_closed": f_show_closed,
-                    "f_stale_days": f_stale_days,
-                })
-            )
-
-        def _second_pass_resolve_checklist_items(task_title_value: str) -> list[str]:
-            if not _wants_checklist_update_intent():
-                return []
-
-            contract = _resolve_intent_contract(task_title_value)
-            intent = contract.get("intent") if isinstance(contract, dict) else None
-            if isinstance(intent, dict):
-                kind = str(intent.get("kind", "")).strip().lower()
-                try:
-                    confidence = float(intent.get("confidence", 0.0) or 0.0)
-                except (TypeError, ValueError):
-                    confidence = 0.0
-                mode = str(intent.get("mode", "")).strip().lower()
-                if mode in {"add", "replace"}:
-                    suggestions["checklist_mode_hint"] = mode
-                resolved_items = _normalize_items(contract.get("resolved_checklist_items"))
-                if kind == "update_checklist" and confidence >= 0.5 and resolved_items:
-                    return resolved_items
-
-            recent_turns: list[str] = []
-            for msg in history_msgs[-12:]:
-                role = msg.get("role")
-                if role not in {"user", "assistant"}:
-                    continue
-                content = str(msg.get("content") or "").strip()
-                if not content:
-                    continue
-                recent_turns.append(f"{role}: {content[:1400]}")
-            if not recent_turns:
-                return []
-
-            resolver_prompt = (
-                "You are extracting checklist items for a task update action. "
-                "Given recent chat turns and the latest user request, return STRICT JSON only: "
-                "{\"suggested_checklist_items\":[...],\"checklist_mode\":\"add|replace\"}. "
-                "Rules: "
-                "1) Prefer the most complete prior proposed checklist if the latest assistant message is clarification/options. "
-                "2) Exclude questions, option labels, instructions, and metadata. "
-                "3) Keep concise actionable items only. "
-                "4) If user asks rewrite/replace/new checklist, set checklist_mode to replace, else add. "
-                "5) Do not include task title alone as an item."
-            )
-            resolver_user = (
-                f"Task title: {task_title_value}\n"
-                f"Latest user request: {user_message}\n"
-                "Recent conversation:\n"
-                + "\n".join(recent_turns)
-            )
-
-            try:
-                resolver_resp = _ai_call(
-                    [
-                        {"role": "system", "content": resolver_prompt},
-                        {"role": "user", "content": resolver_user},
-                    ],
-                    cfg,
-                    max_tokens=420,
-                    temperature=0.0,
-                )
-                resolver_text = str(resolver_resp["choices"][0]["message"]["content"])
-                resolved = _parse_ai_suggestions(resolver_text)
-                mode = str(resolved.get("checklist_mode", "")).strip().lower()
-                if mode in {"add", "replace"}:
-                    suggestions["checklist_mode_hint"] = mode
-                items = _normalize_items(resolved.get("suggested_checklist_items"))
-                return items
-            except Exception:
-                return []
-
-        # Deterministic fast-path: if user asks to apply/update prior checklist proposal,
-        # bypass another LLM generation step and surface preview/apply immediately.
-        if context_type == "task" and _wants_checklist_update_intent():
-            task_title = ""
-            try:
-                task_title = load_task(workspace, entity_id).title
-            except Exception:
-                task_title = ""
-
-            contract = _resolve_intent_contract(task_title)
-            intent_obj = contract.get("intent") if isinstance(contract, dict) else None
-            if isinstance(intent_obj, dict):
-                kind = str(intent_obj.get("kind", "")).strip().lower()
-                try:
-                    confidence = float(intent_obj.get("confidence", 0.0) or 0.0)
-                except (TypeError, ValueError):
-                    confidence = 0.0
-                mode = str(intent_obj.get("mode", "")).strip().lower()
-                resolved_items = _normalize_items(contract.get("resolved_checklist_items"))
-                if kind == "update_checklist" and confidence >= 0.6 and resolved_items:
-                    checklist_mode = mode if mode in {"add", "replace"} else "add"
-                    return _render_checklist_suggestion_from_items(
-                        resolved_items,
-                        checklist_mode,
-                        "Using intent resolution from the conversation contract. Review the preview and apply when ready.",
-                    )
-
-            history_items = _normalize_items(_best_history_checklist_items(task_title))
-            msg_lower = (user_message or "").strip().lower()
-            deictic_apply = _current_user_refers_to_prior_list() or (
-                bool(re.search(r"\b(update|apply|put|use|set|do|yes|yep|yeah|ok)\b", msg_lower, re.IGNORECASE))
-                and not bool(re.search(r"\b(new|make|create|draft|suggest|propose|generate)\b", msg_lower, re.IGNORECASE))
-            )
-            if history_items and deictic_apply:
-                checklist_mode = "replace" if re.search(r"\b(rewrite|replace|revise|new checklist)\b", msg_lower, re.IGNORECASE) else "add"
-                return _render_checklist_suggestion_from_items(
-                    history_items,
-                    checklist_mode,
-                    "Using the previously proposed checklist from this conversation. Review the preview and apply when ready.",
-                )
-
         try:
             response = _ai_call(messages, cfg)
             reply_text = response["choices"][0]["message"]["content"]
         except Exception as exc:
-            fallback = _local_checklist_fallback_response()
-            if fallback is not None:
-                return fallback
             if isinstance(exc, urllib.error.HTTPError):
                 body = exc.read().decode("utf-8", errors="replace")[:300]
                 return HTMLResponse(_ai_error_html(f"HTTP {exc.code}: {exc.reason} — {body}"))
@@ -3640,123 +3268,15 @@ Rules:
                 return HTMLResponse(_ai_error_html(f"Connection error: {exc.reason}"))
             return HTMLResponse(_ai_error_html("An unexpected error occurred. Please check your endpoint settings."))
 
-        suggestions = _parse_ai_suggestions(reply_text)
-        # Strip the JSON block from the display text
-        display_text = re.sub(r"```(?:json)?\s*\{.*?\}\s*```", "", reply_text, flags=re.DOTALL).strip()
-
-        checklist_intent_allowed = _wants_checklist_update_intent()
-        intent_mode_from_contract = ""
-        if context_type == "task":
-            task_title = ""
-            try:
-                task_title = load_task(workspace, entity_id).title
-            except Exception:
-                task_title = ""
-            contract = _resolve_intent_contract(task_title)
-            intent_obj = contract.get("intent") if isinstance(contract, dict) else None
-            if isinstance(intent_obj, dict):
-                kind = str(intent_obj.get("kind", "")).strip().lower()
-                try:
-                    confidence = float(intent_obj.get("confidence", 0.0) or 0.0)
-                except (TypeError, ValueError):
-                    confidence = 0.0
-                mode = str(intent_obj.get("mode", "")).strip().lower()
-                if mode in {"add", "replace"}:
-                    intent_mode_from_contract = mode
-                if kind == "update_checklist" and confidence >= 0.45:
-                    checklist_intent_allowed = True
-                elif kind in {"advice", "clarify"} and confidence >= 0.45:
-                    checklist_intent_allowed = False
-
-        if context_type == "task" and checklist_intent_allowed:
-            task_title = ""
-            try:
-                task_title = load_task(workspace, entity_id).title
-            except Exception:
-                task_title = ""
-            resolved_items = _second_pass_resolve_checklist_items(task_title)
-            if resolved_items:
-                suggestions["suggested_checklist_items"] = resolved_items
-
-        if context_type == "task" and checklist_intent_allowed and not suggestions.get("suggested_checklist_items"):
-            task_title = ""
-            try:
-                task_title = load_task(workspace, entity_id).title
-            except Exception:
-                task_title = ""
-            current_items = _normalize_items(_extract_checklist_items(display_text or reply_text, task_title))
-            history_items = _normalize_items(_best_history_checklist_items(task_title))
-            clarifying_reply = _looks_like_clarification_response(display_text or reply_text)
-
-            choose_current = False
-            if current_items:
-                # Deictic asks like "use those" should prefer the richer prior proposal.
-                if _current_user_refers_to_prior_list() and history_items:
-                    choose_current = False
-                elif clarifying_reply and history_items:
-                    choose_current = False
-                # Prefer direct current extraction for explicit add-item asks.
-                elif re.search(r"\badd\b", user_message or "", re.IGNORECASE) and not re.search(r"\b(rewrite|replace|revise|new checklist|update checklist)\b", user_message or "", re.IGNORECASE):
-                    choose_current = True
-                elif len(current_items) >= 4 and (not history_items or len(current_items) >= len(history_items)):
-                    choose_current = True
-
-            fallback_items = current_items if choose_current or not history_items else history_items
-            if fallback_items:
-                suggestions["suggested_checklist_items"] = fallback_items
-
-        if context_type == "task" and checklist_intent_allowed:
-            task_title = ""
-            try:
-                task_title = load_task(workspace, entity_id).title
-            except Exception:
-                task_title = ""
-
-            current_structured = _normalize_items(suggestions.get("suggested_checklist_items"))
-            history_items = _normalize_items(_best_history_checklist_items(task_title))
-            if current_structured and history_items and (_current_user_refers_to_prior_list() or _looks_like_clarification_response(display_text or reply_text)):
-                # For deictic/clarification flows, favor the prior proposed checklist.
-                if len(history_items) >= len(current_structured):
-                    suggestions["suggested_checklist_items"] = history_items
-
         new_history = list(history_msgs)
         new_history.append({"role": "user", "content": user_message})
         new_history.append({"role": "assistant", "content": reply_text})
         history_json = json.dumps(new_history)
 
-        if context_type == "task" and not checklist_intent_allowed:
-            suggestions.pop("suggested_checklist_items", None)
-
-        has_tasks = bool(suggestions.get("suggested_tasks"))
-        has_checklist = bool(suggestions.get("suggested_checklist_items")) and context_type == "task" and checklist_intent_allowed
-        has_note = bool(suggestions.get("suggested_note"))
-        has_file_edits = bool(suggestions.get("suggested_file_edits"))
-        checklist_mode = "add"
-        mode_hint = str(suggestions.get("checklist_mode_hint", "")).strip().lower()
-        if has_checklist and intent_mode_from_contract in {"add", "replace"}:
-            checklist_mode = intent_mode_from_contract
-        elif has_checklist and mode_hint in {"add", "replace"}:
-            checklist_mode = mode_hint
-        elif has_checklist and re.search(r"\b(rewrite|replace|revise|overhaul|restructure)\b", user_message or "", re.IGNORECASE):
-            checklist_mode = "replace"
-        tasks_json = json.dumps(suggestions.get("suggested_tasks", []))
-        checklist_json = json.dumps(suggestions.get("suggested_checklist_items", []))
-        note_text = str(suggestions.get("suggested_note", ""))
-        file_edits_json = json.dumps(suggestions.get("suggested_file_edits", []))
-
-        rendered_md = markdown_lib.markdown(display_text, extensions=["extra", "sane_lists"])
+        rendered_md = markdown_lib.markdown(reply_text, extensions=["extra", "sane_lists"])
         return HTMLResponse(
             templates.get_template("partials/ai_message.html").render({
                 "reply_html": rendered_md,
-                "has_tasks": has_tasks,
-                "has_checklist": has_checklist,
-                "has_note": has_note,
-                "has_file_edits": has_file_edits,
-                "tasks_json": tasks_json,
-                "checklist_json": checklist_json,
-                "checklist_mode": checklist_mode,
-                "note_text": note_text,
-                "file_edits_json": file_edits_json,
                 "entity_id": entity_id,
                 "context_type": context_type,
                 "history_json": history_json,

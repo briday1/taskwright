@@ -21,8 +21,17 @@
         <p>{{ workspace_name }}</p>
       </div>
     </div>
-    <div class="settings-anchor">
-      <button class="settings-btn" id="settings-btn" aria-label="Settings" title="Settings">⚙</button>
+    <div class="topbar-actions">
+      {% set ai_context_url = '' %}
+      {% if selected_task %}
+        {% set ai_context_url = '/ai/panel/task/' ~ selected_task.id ~ '?view=' ~ filters.view ~ '&milestone=' ~ filters.milestone ~ (('&show_closed=1') if filters.show_closed else '') ~ '&stale_days=' ~ filters.stale_days %}
+      {% elif selected_milestone %}
+        {% set ai_context_url = '/ai/panel/milestone/' ~ selected_milestone.id ~ '?view=' ~ filters.view ~ (('&show_closed=1') if filters.show_closed else '') ~ '&stale_days=' ~ filters.stale_days %}
+      {% endif %}
+      <button type="button" class="btn-link ai-panel-toggle topbar-ai-toggle" data-ai-panel-toggle data-ai-context-url="{{ ai_context_url }}" title="Toggle AI assistant" aria-label="Toggle AI assistant"{% if ai_enabled != '1' %} style="display:none"{% endif %}>🤖</button>
+      {% include "partials/git_chip.html" %}
+      <div class="settings-anchor">
+        <button class="settings-btn" id="settings-btn" aria-label="Settings" title="Settings">⚙</button>
       <div class="settings-popup" id="settings-popup" hidden>
         <div class="settings-popup-title">Theme</div>
         <div class="theme-options">
@@ -68,6 +77,7 @@
                 <option value="">Select discovered model...</option>
               </select>
               <datalist id="ai-model-datalist"></datalist>
+              <div id="ai-connection-status" class="ai-settings-status-inline"></div>
             </label>
             <div class="ai-settings-row-grid2">
               <label>
@@ -93,17 +103,14 @@
                 <input type="number" name="ai_temperature" value="{{ ai_temperature }}" min="0" max="2" step="0.1" class="ai-setting-input-sm">
               </label>
             </div>
+            <div class="ai-settings-actions">
+              <button type="submit" class="ai-settings-save-btn">Save AI settings</button>
+              <div id="ai-settings-status" class="ai-settings-status-inline"></div>
+            </div>
           </div>
         </div>
-        <div class="ai-settings-actions">
-          <button type="button" class="ai-load-models-btn" id="ai-test-connection-btn">Test connection</button>
-          <div id="ai-connection-status" class="ai-settings-status-inline"></div>
-        </div>
-        <div class="ai-settings-actions">
-          <button type="submit" class="ai-settings-save-btn">Save AI settings</button>
-          <div id="ai-settings-status" class="ai-settings-status-inline"></div>
-        </div>
       </form>
+    </div>
     </div>
     </div>
   </header>
@@ -193,6 +200,14 @@
             var fieldsWrap = form.querySelector('#ai-settings-fields');
             if (fieldsWrap) fieldsWrap.style.display = enabled ? '' : 'none';
           });
+          var robotBtn = document.querySelector('[data-ai-panel-toggle]');
+          if (robotBtn) robotBtn.style.display = enabled ? '' : 'none';
+          if (!enabled) {
+            var layout = document.getElementById('app-main');
+            if (layout) layout.classList.add('ai-panel-collapsed');
+            var aiPanel = document.getElementById('ai-panel');
+            if (aiPanel) aiPanel.hidden = true;
+          }
         }
 
         function saveAiSettings() {
@@ -262,36 +277,11 @@
           }
         }
 
-        async function aiTestConnection() {
-          aiSetStatus('ai-connection-status', 'ai-settings-status-inline', 'Testing connection...');
-          var params = aiBuildParams();
-          var response = await fetch('/ai/test', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: params,
-          });
-          var html = await response.text();
-          var wrapper = document.createElement('div');
-          wrapper.innerHTML = html;
-          var status = wrapper.querySelector('#ai-connection-status');
-          if (status) {
-            aiSetStatus('ai-connection-status', status.className || 'ai-settings-status-inline', status.textContent || '');
-          } else {
-            aiSetStatus('ai-connection-status', 'ai-save-err', 'Test failed.');
-          }
-        }
-
         document.addEventListener('click', function (e) {
           var loadBtn = e.target.closest('#ai-load-models-btn');
           if (loadBtn) {
             e.preventDefault();
             aiLoadModels();
-            return;
-          }
-          var testBtn = e.target.closest('#ai-test-connection-btn');
-          if (testBtn) {
-            e.preventDefault();
-            aiTestConnection();
           }
         });
 
@@ -1290,17 +1280,36 @@
         content.textContent = text;
         userMsg.appendChild(content);
         msgs.appendChild(userMsg);
+
+        var typing = document.createElement('div');
+        typing.className = 'ai-msg ai-msg-assistant ai-msg-typing';
+        typing.id = 'ai-typing-bubble';
+        typing.setAttribute('aria-live', 'polite');
+        typing.setAttribute('aria-label', 'Assistant is thinking');
+        typing.innerHTML = '<div class="ai-typing"><span class="ai-typing-label">Thinking</span>'
+          + '<span class="ai-thinking-dot"></span><span class="ai-thinking-dot"></span><span class="ai-thinking-dot"></span></div>';
+        msgs.appendChild(typing);
+
         msgs.scrollTop = msgs.scrollHeight;
         if (ta) ta.value = '';
         saveAiPanelState(lastAiPanelUrl || AI_PANEL_GENERIC_URL);
       });
+      document.body.addEventListener('htmx:beforeSwap', function (e) {
+        var target = e && e.detail ? e.detail.target : null;
+        if (!target || target.id !== 'ai-messages') return;
+        var typing = document.getElementById('ai-typing-bubble');
+        if (typing) typing.remove();
+      });
       document.body.addEventListener('htmx:afterRequest', function (e) {
         var form = e && e.detail ? e.detail.elt : null;
         if (!form || !form.matches || !form.matches('#ai-chat-form')) return;
+        var typing = document.getElementById('ai-typing-bubble');
+        if (typing) typing.remove();
         var msgs = document.getElementById('ai-messages');
         var histInput = document.getElementById('ai-history');
         if (!msgs || !histInput) return;
         histInput.value = msgs.dataset.history || histInput.value || '[]';
+        msgs.scrollTop = msgs.scrollHeight;
         saveAiPanelState(lastAiPanelUrl || AI_PANEL_GENERIC_URL);
       });
       // Load model list into the datalist when user clicks the ↻ button
