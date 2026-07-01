@@ -7,7 +7,7 @@
         {% for task in model.by_status.get(status, []) %}
           <button type="button" class="task-card {{ task.status }}"{% if task.project %} style="border-left-color: {{ project_colors.get(task.project, '#3567e0') }}"{% endif %} hx-trigger="click" hx-get="/tasks/{{ task.id }}/panel?view={{ filters.view }}{% if filters.query %}&{{ filters.query }}{% endif %}" hx-target="#task-panel" hx-swap="innerHTML">
             <strong>{{ task.title }}</strong>
-            {% if task.due_date %}<small>due {{ task.due_date }}</small>{% endif %}
+            {% if task.due_date %}<small class="due-label {{ task.due_date|due_class }}">due {{ task.due_date }}</small>{% endif %}
             {% if task.summary %}<p>{{ task.summary }}</p>{% endif %}
             <div class="meta">
               <span class="priority-tag {{ task.priority }}">{{ task.priority }}</span>

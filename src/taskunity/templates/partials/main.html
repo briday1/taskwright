@@ -136,7 +136,7 @@
         {% elif selected_milestone %}
           {% set ai_context_url = '/ai/panel/milestone/' ~ selected_milestone.id ~ '?view=' ~ filters.view ~ (('&show_closed=1') if filters.show_closed else '') ~ '&stale_days=' ~ filters.stale_days %}
         {% endif %}
-        <button type="button" class="btn-link ai-panel-toggle" data-ai-panel-toggle data-ai-context-url="{{ ai_context_url }}">Enable AI</button>
+        <button type="button" class="btn-link ai-panel-toggle" data-ai-panel-toggle data-ai-context-url="{{ ai_context_url }}" title="Toggle AI assistant" aria-label="Toggle AI assistant">🤖</button>
       {% endif %}
       <a class="btn-link" href="/export/csv{% if filters.query %}?{{ filters.query }}{% endif %}">Export CSV</a>
       <a class="btn-link" href="/export/json{% if filters.query %}?{{ filters.query }}{% endif %}">Export JSON</a>

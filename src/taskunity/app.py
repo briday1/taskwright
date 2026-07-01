@@ -23,10 +23,12 @@ from .render import (
     SORTS,
     STATUSES,
     build_calendar,
+    build_timeline,
     dashboard_model,
     filter_tasks,
     hide_stale_closed_tasks,
     milestone_rollup,
+    parse_date,
     sort_tasks,
     tasks_to_jsonantt,
 )
@@ -71,6 +73,27 @@ PACKAGE_DIR = Path(__file__).parent
 
 def markdown_filter(text: str) -> str:
     return markdown_lib.markdown(text or "", extensions=["extra", "sane_lists"])
+
+
+def due_class_filter(due_value: str | None) -> str:
+    """Return a CSS class for a due date based on its proximity to today.
+
+    - ``due-overdue`` when the due date is in the past.
+    - ``due-soon`` when the due date is today or tomorrow.
+    - empty string otherwise (or when the value is missing/unparseable).
+    """
+    if not due_value:
+        return ""
+    try:
+        due = date.fromisoformat(str(due_value).strip()[:10])
+    except ValueError:
+        return ""
+    delta = (due - date.today()).days
+    if delta < 0:
+        return "due-overdue"
+    if delta <= 1:
+        return "due-soon"
+    return ""
 
 
 def build_task_activity_entries(task: Task | None) -> list[dict[str, object]]:
@@ -225,6 +248,7 @@ def create_app(workspace: str | Path = ".") -> FastAPI:
     app = FastAPI(title=app_name)
     templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
     templates.env.filters["markdown"] = markdown_filter
+    templates.env.filters["due_class"] = due_class_filter
 
     app.mount("/static", StaticFiles(directory=str(PACKAGE_DIR / "static")), name="static")
     app.mount("/assets", StaticFiles(directory=str(workspace / "assets")), name="assets")
@@ -1228,6 +1252,20 @@ Rules:
             selected_task = tasks_by_id.get(panel_task_id)
             if selected_task is None:
                 panel_task_id = ""
+        task_timeline = None
+        if selected_task is not None:
+            timeline_tasks = [selected_task]
+            seen_ids = {selected_task.id}
+            for dep in selected_task.depends_on:
+                dep_task = tasks_by_id.get(dep)
+                if dep_task is not None and dep_task.id not in seen_ids:
+                    timeline_tasks.append(dep_task)
+                    seen_ids.add(dep_task.id)
+            for t in all_tasks:
+                if t.id not in seen_ids and selected_task.id in t.depends_on:
+                    timeline_tasks.append(t)
+                    seen_ids.add(t.id)
+            task_timeline = build_timeline(timeline_tasks)
         milestone_rollups = {m.id: milestone_rollup(m, tasks_by_id) for m in milestones}
 
         selected_milestone = None
@@ -1337,6 +1375,7 @@ Rules:
             "model": dashboard_model(filtered),
             "statuses": STATUSES,
             "selected_task": selected_task,
+            "task_timeline": task_timeline,
             "milestones": milestones,
             "selected_milestone": selected_milestone,
             "rollup": rollup,
@@ -1422,11 +1461,27 @@ Rules:
             selected_task.project = project_name_by_id[selected_task.project_id]
 
         colors = project_colors(all_projects, all_tasks)
+        tasks_by_id = {t.id: t for t in all_tasks}
+        timeline_tasks = [selected_task]
+        seen_ids = {selected_task.id}
+        # Direct dependencies (tasks this task depends on)
+        for dep in selected_task.depends_on:
+            dep_task = tasks_by_id.get(dep)
+            if dep_task is not None and dep_task.id not in seen_ids:
+                timeline_tasks.append(dep_task)
+                seen_ids.add(dep_task.id)
+        # Direct dependents (tasks that depend on this task)
+        for t in all_tasks:
+            if t.id not in seen_ids and selected_task.id in t.depends_on:
+                timeline_tasks.append(t)
+                seen_ids.add(t.id)
+        task_timeline = build_timeline(timeline_tasks)
         return {
             "request": request,
             "selected_task": selected_task,
             "projects": all_projects,
             "project_colors": colors,
+            "task_timeline": task_timeline,
             "statuses": STATUSES,
             "task_activity_entries": build_task_activity_entries(selected_task),
             "task_index": [
@@ -2964,6 +3019,35 @@ Rules:
                     "show_closed": parse_toggle(show_closed),
                 },
             },
+        )
+
+    @app.post("/projects/{project_id}/tasks/new", response_class=HTMLResponse)
+    def project_new_task_route(
+        request: Request,
+        project_id: str,
+        title: str = Form("New task"),
+        f_view: str = Form("projects"),
+        f_show_closed: str = Form(""),
+        f_stale_days: str = Form(str(STALE_CLOSED_DAYS)),
+    ) -> HTMLResponse:
+        task = create_task(workspace, title)
+        try:
+            project = load_project(workspace, project_id)
+            task.project_id = project.id
+            task.project = project.name
+            save_task(workspace, task)
+        except Exception:
+            pass
+        return templates.TemplateResponse(
+            request,
+            "partials/main.html",
+            context(
+                request,
+                task,
+                view=f_view,
+                show_closed=parse_toggle(f_show_closed),
+                stale_days=parse_stale_days(f_stale_days),
+            ),
         )
 
     @app.post("/projects/{project_id}/save", response_class=HTMLResponse)

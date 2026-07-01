@@ -42,7 +42,7 @@
             <td>{% if task.project %}<span class="project" style="background: {{ project_colors.get(task.project, '#2e6fd8') }}22; color: {{ project_colors.get(task.project, '#2e6fd8') }}">{{ task.project }}</span>{% endif %}</td>
             <td><span class="status-pill {{ task.status }}">{{ task.status }}</span></td>
             <td><span class="priority-tag {{ task.priority }}">{{ task.priority }}</span></td>
-            <td>{{ task.due_date or '—' }}</td>
+            <td>{% if task.due_date %}<span class="due-label {{ task.due_date|due_class }}">{{ task.due_date }}</span>{% else %}—{% endif %}</td>
             <td>
               <div class="mini-progress" title="{{ task.percent_complete }}% complete">
                 <div style="width: {{ task.percent_complete }}%"></div>

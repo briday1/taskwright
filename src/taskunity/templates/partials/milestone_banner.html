@@ -160,13 +160,15 @@
                   tension: 0.25,
                   stepped: 'before',
                   pointRadius: 4,
-                  pointHoverRadius: 6
+                  pointHoverRadius: 6,
+                  clip: false
                 }]
               },
               options: {
                 parsing: false,
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: { padding: { top: 16 } },
                 interaction: { mode: 'nearest', intersect: true },
                 onClick: function (evt, active) {
                   if (active && active.length) {

@@ -31,6 +31,33 @@
     <button type="submit">Save Project</button>
   </form>
 
+  <section class="subsection">
+    <h3>Tasks <span class="notes-count-badge">{{ project_tasks|length }}</span></h3>
+    <div class="ms-task-box">
+      <ul class="ms-task-list">
+        {% for t in project_tasks %}
+          <li class="ms-task {{ t.status }}">
+            <button type="button" class="ms-task-open" hx-get="/tasks/{{ t.id }}/panel?view={{ filters.view }}{% if filters.show_closed %}&show_closed=1{% endif %}&stale_days={{ filters.stale_days }}" hx-target="#task-panel" hx-swap="innerHTML">
+              <span class="ms-task-title">{{ t.title }}</span>
+              <span class="ms-task-meta">
+                <span class="status-pill {{ t.status }}">{{ t.status }}</span>
+                {% if t.due_date %}<span class="due-label {{ t.due_date|due_class }}">due {{ t.due_date }}</span>{% endif %}
+              </span>
+            </button>
+          </li>
+        {% else %}
+          <li class="muted ms-empty">No tasks yet. Use “+ New task” below.</li>
+        {% endfor %}
+      </ul>
+      <form hx-post="/projects/{{ selected_project.id }}/tasks/new" hx-target="#app-main" hx-swap="outerHTML" class="ms-new-task-bar">
+        <input type="hidden" name="f_view" value="{{ filters.view }}">
+        <input type="hidden" name="f_show_closed" value="{% if filters.show_closed %}1{% endif %}">
+        <input type="hidden" name="f_stale_days" value="{{ filters.stale_days }}">
+        <button type="submit" class="ms-new-task-btn" title="Quickly add a new task to this project">+ New task</button>
+      </form>
+    </div>
+  </section>
+
   <form action="/projects/{{ selected_project.id }}/delete" method="post"
         onsubmit="return confirm('Delete project {{ selected_project.name }}? Tasks will not be deleted.')"
         class="danger-zone">

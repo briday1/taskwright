@@ -81,7 +81,7 @@
                 <span class="dep-option-meta">
                   <span class="dep-status {{ t.status }}">{{ t.status }}</span>
                   {% if t.project %}<span class="dep-proj">{{ t.project }}</span>{% endif %}
-                  {% if t.due_date %}<span class="dep-due">due {{ t.due_date }}</span>{% endif %}
+                  {% if t.due_date %}<span class="dep-due {{ t.due_date|due_class }}">due {{ t.due_date }}</span>{% endif %}
                   <span class="dep-id">{{ t.id }}</span>
                 </span>
               </button>
@@ -240,6 +240,32 @@
   </section>
 
   <section class="subsection">
+    <h3>Task Timeline</h3>
+    {% if task_timeline.rows %}
+      {% if task_timeline.start %}<p class="schedule-range">{{ task_timeline.start }} → {{ task_timeline.end }}</p>{% endif %}
+      <div class="timeline task-panel-timeline">
+        {% for item in task_timeline.rows %}
+          <div class="timeline-row{% if item.task.id == selected_task.id %} current{% endif %}">
+            <span class="timeline-title">
+              {{ item.task.title }}
+              {% if item.task.id == selected_task.id %}<small class="timeline-self">this task</small>{% endif %}
+              {% if item.task.depends_on %}<small class="timeline-deps">↳ after {% for d in item.task.depends_on %}{{ task_titles.get(d, d) }}{% if not loop.last %}, {% endif %}{% endfor %}</small>{% endif %}
+            </span>
+            <span class="timeline-track">
+              <span class="timeline-bar {{ item.task.status }}"{% if item.task.project %} style="left: {{ item.left }}%; width: {{ item.width }}%; background: {{ project_colors.get(item.task.project, '#2e6fd8') }}"{% else %} style="left: {{ item.left }}%; width: {{ item.width }}%"{% endif %}></span>
+              {% for mark in item.dep_marks %}
+                <span class="timeline-dep-mark" style="left: {{ mark.pos }}%" title="Depends on {{ task_titles.get(mark.id, mark.id) }} (ends here)"></span>
+              {% endfor %}
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="muted">Add start or due dates to this task (and its dependencies) to populate the timeline.</p>
+    {% endif %}
+  </section>
+
+  <section class="subsection">
     <h3>Task Burndown Chart</h3>
     <canvas id="task-burndown-{{ selected_task.id }}" class="burndown-canvas" height="180"></canvas>
     <script>
@@ -369,13 +395,15 @@
                   tension: 0.25,
                   stepped: 'before',
                   pointRadius: 4,
-                  pointHoverRadius: 6
+                  pointHoverRadius: 6,
+                  clip: false
                 }]
               },
               options: {
                 parsing: false,
                 responsive: true,
                 maintainAspectRatio: true,
+                layout: { padding: { top: 16 } },
                 interaction: { mode: 'nearest', intersect: true },
                 onClick: function (evt, active) {
                   if (active && active.length) {

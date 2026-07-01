@@ -49,7 +49,7 @@
               <span class="dep-option-meta">
                 <span class="dep-status {{ t.status }}">{{ t.status }}</span>
                 {% if t.project %}<span class="dep-proj">{{ t.project }}</span>{% endif %}
-                {% if t.due_date %}<span class="dep-due">due {{ t.due_date }}</span>{% endif %}
+                {% if t.due_date %}<span class="dep-due {{ t.due_date|due_class }}">due {{ t.due_date }}</span>{% endif %}
                 <span class="dep-id">{{ t.id }}</span>
               </span>
             </button>
@@ -68,7 +68,7 @@
               <span class="ms-task-meta">
                 <span class="status-pill {{ t.status }}">{{ t.status }}</span>
                 {% if t.project %}<span class="project" style="background: {{ project_colors.get(t.project, '#2e6fd8') }}22; color: {{ project_colors.get(t.project, '#2e6fd8') }}">{{ t.project }}</span>{% endif %}
-                {% if t.due_date %}<span class="muted">due {{ t.due_date }}</span>{% endif %}
+                {% if t.due_date %}<span class="due-label {{ t.due_date|due_class }}">due {{ t.due_date }}</span>{% endif %}
               </span>
             </button>
             <button type="button" class="ms-task-remove" hx-post="/milestones/{{ selected_milestone.id }}/tasks/{{ t.id }}/remove?f_view={{ filters.view }}{% if filters.show_closed %}&f_show_closed=1{% endif %}&f_stale_days={{ filters.stale_days }}" hx-target="#app-main" hx-swap="outerHTML" title="Remove from milestone" aria-label="Remove from milestone">×</button>
